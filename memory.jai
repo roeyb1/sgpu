@@ -134,4 +134,12 @@ remove_gpu_memory_range :: (start_ptr: Gpu_Ptr) {
     }
 }
 
+Texture :: struct {
+    desc: Gpu_Texture_Desc;
+    vk_image: VkImage;
+    allocation: VmaAllocation;
+}
+
+live_textures: Pool(Gpu_Texture, Texture);
+
 #import "Hash_Table";
