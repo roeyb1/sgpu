@@ -68,7 +68,7 @@ gpu_start_command_recording :: (queue_handle: Gpu_Queue) -> Gpu_Command_Buffer {
     return cmd_buff_handle;
 }
 
-gpu_submit :: (queue_handle: Gpu_Queue, buffer: Gpu_Command_Buffer) {
+gpu_submit :: (queue_handle: Gpu_Queue, buffer: Gpu_Command_Buffer, signal: Gpu_Semaphore = 0, signal_value: u64 = 0) {
     assert(buffer != 0);
     index := (buffer - 1);
     assert(index < live_pools.count);
@@ -80,11 +80,19 @@ gpu_submit :: (queue_handle: Gpu_Queue, buffer: Gpu_Command_Buffer) {
 
     queue_timeline_value := atomic_add(*queue.timeline_value, 1) + 1; // atomic_add returns the previous value.
 
-    signal_values := u64.[queue_timeline_value];
-    signal_semaphores := VkSemaphore.[queue.timeline];
+    signal_values := u64.[queue_timeline_value, 0];
+    signal_semaphores := VkSemaphore.[queue.timeline, VK_NULL_HANDLE];
+    signal_count: u32 = 1;
+
+    if signal != 0 {
+        vk_semaphore := get_semaphore(signal);
+        signal_semaphores[1] = vk_semaphore;
+        signal_values[1] = signal_value;
+        signal_count += 1;
+    }
 
     timeline_info := VkTimelineSemaphoreSubmitInfo.{
-        signalSemaphoreValueCount = signal_values.count.(u32),
+        signalSemaphoreValueCount = signal_count,
         pSignalSemaphoreValues = signal_values.data,
     };
 
@@ -93,7 +101,7 @@ gpu_submit :: (queue_handle: Gpu_Queue, buffer: Gpu_Command_Buffer) {
         pNext = *timeline_info,
         commandBufferCount = cmd_buffers.count.(u32),
         pCommandBuffers = cmd_buffers.data,
-        signalSemaphoreCount = signal_semaphores.count.(u32),
+        signalSemaphoreCount = signal_count,
         pSignalSemaphores = signal_semaphores.data,
     };
     vkQueueSubmit(queue.vk_queue, 1, *submit_info, VK_NULL_HANDLE);

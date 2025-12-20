@@ -901,6 +901,12 @@ Semaphore :: struct {
     vk_semaphore: VkSemaphore;
 }
 
+get_semaphore :: (semaphore_handle: Gpu_Semaphore) -> VkSemaphore {
+    semaphore := pool_get(live_semaphores, semaphore_handle);
+    assert(semaphore != null);
+    return semaphore.vk_semaphore;
+}
+
 live_semaphores: Pool(Gpu_Semaphore, Semaphore);
 
 MAX_BUFFERS :: 10000;

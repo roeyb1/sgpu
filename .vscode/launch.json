@@ -40,6 +40,17 @@
                 "LD_LIBRARY_PATH": "${workspaceFolder}/examples/bin"
             },
             "cwd": "${workspaceFolder}/examples/bin"
+        },
+        {
+            "name": "Draw Loop - Unix",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/examples/bin/draw_loop",
+            "args": [ ],
+            "env": {
+                "LD_LIBRARY_PATH": "${workspaceFolder}/examples/bin"
+            },
+            "cwd": "${workspaceFolder}/examples/bin"
         }
     ]
 }
