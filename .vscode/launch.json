@@ -8,7 +8,7 @@
             "name": "Basic - Windows",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/examples/basic.exe",
+            "program": "${workspaceFolder}/examples/bin/basic.exe",
             "args": [
             ],
             "console":"integratedTerminal",
@@ -17,29 +17,29 @@
                 "trace": true
             },
             "visualizerFile": "${workspaceFolder}/.vscode/jai.natvis",
-            "cwd": "${workspaceRoot}/examples",
+            "cwd": "${workspaceRoot}/examples/bin",
         },
         {
             "name": "Basic - Unix",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/examples/basic",
+            "program": "${workspaceFolder}/examples/bin/basic",
             "args": [ ],
             "env": {
-                "LD_LIBRARY_PATH": "${workspaceFolder}/examples"
+                "LD_LIBRARY_PATH": "${workspaceFolder}/examples/bin"
             },
-            "cwd": "${workspaceFolder}/examples"
-        }
+            "cwd": "${workspaceFolder}/examples/bin"
+        },
         {
             "name": "Instanced Draw - Unix",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/examples/instanced_drawing",
+            "program": "${workspaceFolder}/examples/bin/instanced_drawing",
             "args": [ ],
             "env": {
-                "LD_LIBRARY_PATH": "${workspaceFolder}/examples"
+                "LD_LIBRARY_PATH": "${workspaceFolder}/examples/bin"
             },
-            "cwd": "${workspaceFolder}/examples"
+            "cwd": "${workspaceFolder}/examples/bin"
         }
     ]
 }

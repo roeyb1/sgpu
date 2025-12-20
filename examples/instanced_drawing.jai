@@ -4,9 +4,9 @@ main :: () {
 
     main_queue := gpu_get_queue(.MAIN, 0);
 
-    v_success, vertex_spv := compile_shader("shaders/basic_vs.slang");
+    v_success, vertex_spv := compile_shader("../shaders/basic_vs.slang");
     assert(v_success);
-    p_success, pixel_spv := compile_shader("shaders/basic_ps.slang");
+    p_success, pixel_spv := compile_shader("../shaders/basic_ps.slang");
     assert(p_success);
 
 

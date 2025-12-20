@@ -3,6 +3,8 @@
 #run {
     set_build_options_dc(.{do_output = false});
 
+    make_directory_if_it_does_not_exist("bin");
+
     compile_example("basic");
     compile_example("instanced_drawing");
 }
@@ -12,6 +14,7 @@ compile_example :: (name: string) {
     options := get_build_options();
     options.output_type = .EXECUTABLE;
     options.output_executable_name = name;
+    options.output_path = "bin";
 
     if OS == .LINUX {
         compiler_add_library_search_directory(gcc_lib_dir());
@@ -34,3 +37,4 @@ gcc_lib_dir :: () -> string {
 
 #import "Basic";
 #import "Compiler";
+#import "File";
