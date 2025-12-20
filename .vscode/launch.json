@@ -30,5 +30,16 @@
             },
             "cwd": "${workspaceFolder}/examples"
         }
+        {
+            "name": "Instanced Draw - Unix",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/examples/instanced_drawing",
+            "args": [ ],
+            "env": {
+                "LD_LIBRARY_PATH": "${workspaceFolder}/examples"
+            },
+            "cwd": "${workspaceFolder}/examples"
+        }
     ]
 }

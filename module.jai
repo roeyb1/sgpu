@@ -494,6 +494,7 @@ gpu_destroy_semaphore :: (semaphore_handle: Gpu_Semaphore) {
 #load "textures.jai";
 #load "bindless.jai";
 #load "pipeline.jai";
+#load "shader_compiler.jai";
 
 #scope_module
 
