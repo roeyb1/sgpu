@@ -4,34 +4,35 @@ main :: () {
     transfer_queue := gpu_get_queue(.TRANSFER, 0);
 
     {
-        buffer_size := 1024;
-        ptr, staging_ptr := gpu_malloc([1024] u8);
-        _, gpu_ptr_a := gpu_malloc(buffer_size, .GPU);
-        _, gpu_ptr_b := gpu_malloc(buffer_size, .GPU);
+        count :: 1024;
+        ptr, staging_ptr := gpu_malloc([count] u8);
+        _, gpu_ptr_a := gpu_malloc([count] u8, .GPU);
+        _, gpu_ptr_b := gpu_malloc([count] u8, .GPU);
 
-        memset(ptr, 255, buffer_size);
+        memset(ptr, 255, count);
 
-        for 0..1023 {
+        for 0..count-1 {
             assert(ptr.*[it] == 255);
         }
 
         cmd_buff := gpu_start_command_recording(transfer_queue);
 
-        gpu_memcpy(cmd_buff, gpu_ptr_a, staging_ptr, buffer_size);
+        gpu_memcpy(cmd_buff, gpu_ptr_a, staging_ptr, count);
         gpu_barrier(cmd_buff, .TRANSFER, .TRANSFER);
-        gpu_memcpy(cmd_buff, gpu_ptr_b, gpu_ptr_a, buffer_size);
+        gpu_memcpy(cmd_buff, gpu_ptr_b, gpu_ptr_a, count);
         gpu_barrier(cmd_buff, .TRANSFER, .TRANSFER);
-        gpu_memcpy(cmd_buff, staging_ptr, gpu_ptr_b, buffer_size);
+        gpu_memcpy(cmd_buff, staging_ptr, gpu_ptr_b, count);
 
 
         gpu_submit(transfer_queue, cmd_buff);
 
         gpu_wait_idle();
 
-        for 0..1023 {
+        // ensures that the barriers sufficiently prevented read after write and write racing write hazards.
+        // this works at least on my hardware
+        for 0..count-1 {
             assert(ptr.*[it] == 255);
         }
-
 
         gpu_free(ptr);
         gpu_free(gpu_ptr_a);
