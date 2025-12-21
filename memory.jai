@@ -6,6 +6,11 @@ Memory_Type :: enum {
     READBACK;
 }
 
+gpu_malloc :: ($type: Type, memory_type: Memory_Type = .DEFAULT) -> (mapped: *type, gpu: Gpu_Ptr) {
+    cpu_ptr, gpu_ptr := gpu_malloc(size_of(type), memory_type);
+    return cpu_ptr.(*type), gpu_ptr;
+}
+
 gpu_malloc :: (size: s64, memory_type: Memory_Type = .DEFAULT) -> (mapped: *void, gpu: Gpu_Ptr) {
     memory_flags: VkMemoryPropertyFlagBits;
     memory_usage_flags: VmaMemoryUsage;
@@ -33,7 +38,7 @@ gpu_malloc :: (size: s64, memory_type: Memory_Type = .DEFAULT) -> (mapped: *void
     // set to SRC_BIT for cpu visible buffers and DST_BIT for gpu buffers
     if memory_type == .GPU {
         // #perf: Not sure what kind of impact having transfer_dst on the few buffers that are populated by shaders.
-        buffer_create_info.usage |= .TRANSFER_DST_BIT;
+        buffer_create_info.usage |= .TRANSFER_DST_BIT | .TRANSFER_SRC_BIT;
     } else {
         buffer_create_info.usage |= .TRANSFER_SRC_BIT;
     }

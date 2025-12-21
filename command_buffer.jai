@@ -120,8 +120,8 @@ gpu_memcpy :: (cmd: Gpu_Command_Buffer, dest: Gpu_Ptr, src: Gpu_Ptr, num_bytes: 
     assert(src_alloc_range.start != 0);
 
     // ensure the copy region is valid for both memory ranges.
-    assert(dest + num_bytes.(Gpu_Ptr) < dest_alloc_range.end);
-    assert(src + num_bytes.(Gpu_Ptr) < dest_alloc_range.end);
+    assert(dest + num_bytes.(Gpu_Ptr) <= dest_alloc_range.end);
+    assert(src + num_bytes.(Gpu_Ptr) <= src_alloc_range.end);
 
     found_dest, dest_alloc := table_find(*gpu_allocations, dest_alloc_range.start);
     assert(found_dest);
@@ -144,7 +144,6 @@ gpu_copy_to_texture :: (cmd: Gpu_Command_Buffer, dest: Gpu_Ptr, src: Gpu_Ptr, te
 gpu_copy_from_texture :: (cmd: Gpu_Command_Buffer, dest: Gpu_Ptr, src: Gpu_Ptr, texture: Gpu_Texture) {
 
 }
-
 
 gpu_barrier :: (cmd: Gpu_Command_Buffer, before: Stage, after: Stage, hazard: Hazard_Flags = .NONE) {
     cmd_buff := get_cmd_buff(cmd);
