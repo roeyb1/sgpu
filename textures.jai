@@ -109,6 +109,18 @@ gpu_texture_view :: (texture_handle: Gpu_Texture, desc: Gpu_View_Desc = .{}) -> 
     return handle;
 }
 
+gpu_texture_desc :: (view_hande: Gpu_Texture_View) -> bool, Gpu_Texture_Desc {
+    view := pool_get(*live_views, view_hande);
+    if !view {
+        return false, .{};
+    }
+    texture := pool_get(*live_textures, view.texture);
+    if !texture {
+        return false, .{};
+    }
+    return true, texture.desc;
+}
+
 #scope_module
 
 Texture :: struct {

@@ -42,6 +42,10 @@ gpu_swapchain_resize :: () {
 }
 
 gpu_destroy_swapchain :: () {
+    cleanup_swapchain_image_views();
+
+    gpu_destroy_semaphore(frame_timeline);
+
     for acquire_semaphores {
         vkDestroySemaphore(vk_device, it, null);
     }
@@ -199,11 +203,16 @@ recreate_swapchain :: () {
     vk_result = vkCreateSwapchainKHR(vk_device, *create_info, null, *vk_swapchain);
     assert_vk_result(vk_result);
 
+    if old_swapchain != VK_NULL_HANDLE {
+        vkDestroySwapchainKHR(vk_device, old_swapchain, null);
+    }
+
     image_count: u32;
     vk_result = vkGetSwapchainImagesKHR(vk_device, vk_swapchain, *image_count, null);
     assert_vk_result(vk_result);
 
     array_resize(*swapchain_images, image_count);
+    array_resize(*swapchain_textures, image_count);
     array_resize(*swapchain_views, image_count);
     vk_result = vkGetSwapchainImagesKHR(vk_device, vk_swapchain, *image_count, swapchain_images.data);
     assert_vk_result(vk_result);
@@ -213,8 +222,6 @@ recreate_swapchain :: () {
     };
 
     for swapchain_images {
-        // #todo: unify this with texture code.
-        // we should be able to turn the swapchain textures into internally managed gpu textures.
         view_create_info := VkImageViewCreateInfo.{
             image = it,
             viewType = ._2D,
@@ -228,7 +235,7 @@ recreate_swapchain :: () {
             },
         };
 
-        swapchain_texture_handle := pool_add(*live_textures, .{
+        swapchain_textures[it_index] = pool_add(*live_textures, .{
             vk_image = it,
             desc = .{
                 format = swapchain_format.format.(Format),
@@ -237,7 +244,7 @@ recreate_swapchain :: () {
             },
         });
 
-        view_handle := gpu_texture_view(swapchain_texture_handle);
+        view_handle := gpu_texture_view(swapchain_textures[it_index]);
 
         swapchain_views[it_index] = view_handle;
     }
@@ -287,8 +294,8 @@ recreate_surface :: () {
 }
 
 cleanup_swapchain_image_views :: () {
-    for swapchain_views {
-        //vkDestroyImageView(vk_device, it, null);
+    for swapchain_textures {
+        gpu_free(it);
     }
 }
 
@@ -327,6 +334,7 @@ frame_timeline: Gpu_Semaphore;
 frame_timeline_cpu: u64;
 
 swapchain_images: [..] VkImage;
+swapchain_textures: [..] Gpu_Texture;
 swapchain_views: [..] Gpu_Texture_View;
 current_swapchain_index: u32;
 acquire_semaphore_index: u64;

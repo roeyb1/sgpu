@@ -61,8 +61,6 @@ main :: () {
     pixel_data, pixel_gpu := gpu_arena_alloc(*gpu_arena, [3] float);
     pixel_data.* = .[1., 0., 1.];
 
-    semaphore := gpu_create_semaphore(0);
-
     FRAMES_IN_FLIGHT :: 2;
     quit := false;
     frame_index := 0;
