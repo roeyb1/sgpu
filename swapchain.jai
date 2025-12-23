@@ -89,6 +89,78 @@ gpu_present :: () {
     assert(vk_result == .SUCCESS || vk_result == .SUBOPTIMAL_KHR || vk_result == .ERROR_OUT_OF_DATE_KHR);
 }
 
+gpu_submit_and_present :: (queue_handle: Gpu_Queue, buffer: Gpu_Command_Buffer) {
+    assert(buffer != 0);
+    index := (buffer - 1);
+    assert(index < live_pools.count);
+    pool := live_pools[index];
+
+    image_barrier := VkImageMemoryBarrier2.{
+        image = swapchain_images[current_swapchain_index],
+        // Conservatively barrier on color attachment writes and transfer writes.
+        srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+        dstStageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+        srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
+        subresourceRange = .{
+            baseMipLevel = 0,
+            baseArrayLayer = 0,
+            levelCount = 1,
+            layerCount = 1,
+            aspectMask = get_image_aspect_mask(swapchain_format.format.(Format)),
+        },
+        oldLayout = .UNDEFINED,
+        newLayout = .PRESENT_SRC_KHR,
+    };
+
+    dep_info := VkDependencyInfo.{
+        imageMemoryBarrierCount = 1,
+        pImageMemoryBarriers = *image_barrier,
+    };
+
+    vkCmdPipelineBarrier2(pool.vk_cmd_buff, *dep_info);
+
+
+    vkEndCommandBuffer(pool.vk_cmd_buff);
+
+    queue := get_queue(queue_handle);
+
+    queue_timeline_value := atomic_add(*queue.timeline_value, 1) + 1; // atomic_add returns the previous value.
+
+    signal_values := u64.[queue_timeline_value, 0, 0];
+    signal_semaphores := VkSemaphore.[queue.timeline, current_present_semaphore(), VK_NULL_HANDLE];
+    signal_count: u32 = 3;
+
+    vk_semaphore := get_semaphore(frame_timeline);
+    signal_semaphores[2] = vk_semaphore;
+    signal_values[2] = frame_timeline_cpu;
+
+    timeline_info := VkTimelineSemaphoreSubmitInfo.{
+        signalSemaphoreValueCount = signal_count,
+        pSignalSemaphoreValues = signal_values.data,
+    };
+
+    wait_stages := VkPipelineStageFlagBits.TOP_OF_PIPE_BIT;
+    wait_semaphore := current_acquire_semaphore();
+    cmd_buffers := VkCommandBuffer.[pool.vk_cmd_buff];
+    submit_info := VkSubmitInfo.{
+        pNext = *timeline_info,
+        commandBufferCount = cmd_buffers.count.(u32),
+        pCommandBuffers = cmd_buffers.data,
+        signalSemaphoreCount = signal_count,
+        pSignalSemaphores = signal_semaphores.data,
+        waitSemaphoreCount = 1,
+        pWaitSemaphores = *wait_semaphore,
+        pWaitDstStageMask = *wait_stages,
+    };
+    vkQueueSubmit(queue.vk_queue, 1, *submit_info, VK_NULL_HANDLE);
+
+    live_pools[index] = null;
+    array_add(*garbage_pools[queue.type], .{queue_timeline_value, pool});
+
+
+    gpu_present();
+}
+
 gpu_frame_timeline :: () -> Gpu_Semaphore {
     return frame_timeline;
 }

@@ -103,11 +103,7 @@ main :: () {
             gpu_end_render_pass(cmd_buff);
         }
 
-        gpu_barrier(cmd_buff, .COLOR_ATTACHMENT_OUTPUT, .BOTTOM_OF_PIPE);
-
-        gpu_submit_for_present(main_queue, cmd_buff);
-
-        gpu_present();
+        gpu_submit_and_present(main_queue, cmd_buff);
     }
 
     gpu_wait_idle();
