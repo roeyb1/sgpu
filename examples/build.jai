@@ -7,7 +7,6 @@
 
     compile_example("basic");
     compile_example("instanced_drawing");
-    compile_example("draw_loop");
     compile_example("window");
 
     copy_module_libraries_to_target("bin");
