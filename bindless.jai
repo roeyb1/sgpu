@@ -74,12 +74,16 @@ create_descriptor_buffer :: () {
     bindless_buffer.mapped = alloc_info.pMappedData;
 }
 
-bind_descriptor_buffer :: (cmd_buff: VkCommandBuffer) {
+bind_descriptor_buffer :: (cmd_buff: VkCommandBuffer, bind_point: VkPipelineBindPoint) {
     binding_info := VkDescriptorBufferBindingInfoEXT.{
         address = bindless_buffer.gpu_ptr,
         usage = .RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT,
     };
     vkCmdBindDescriptorBuffersEXT(cmd_buff, 1, *binding_info);
+
+    index: u32 = 0;
+    offset: VkDeviceSize = 0;
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd_buff, bind_point, vk_pipeline_layout, 0, 1, *index, *offset);
 }
 
 write_texture_descriptor :: (vk_view: VkImageView, index: Gpu_Texture_View) {
@@ -106,20 +110,16 @@ write_texture_descriptor :: (vk_view: VkImageView, index: Gpu_Texture_View) {
 
 write_sampler_descriptor :: (vk_sampler: VkSampler, index: Gpu_Sampler) {
     binding_offset: VkDeviceSize;
-    vkGetDescriptorSetLayoutBindingOffsetEXT(vk_device, bindless_set_layout, TEXTURE_BINDING, *binding_offset);
+    vkGetDescriptorSetLayoutBindingOffsetEXT(vk_device, bindless_set_layout, SAMPLER_BINDING, *binding_offset);
 
     binding := bindless_buffer.mapped + binding_offset;
 
     sampler_descriptor_size := descriptor_properties.samplerDescriptorSize;
     element_ptr := binding + (index.(u64) * sampler_descriptor_size);
 
-    image_info := VkDescriptorImageInfo.{
-        sampler = vk_sampler,
-    };
-
     get_info := VkDescriptorGetInfoEXT.{
         type = .SAMPLER,
-        data.pSampledImage = *image_info,
+        data.pSampler = *vk_sampler,
     };
 
     vkGetDescriptorEXT(vk_device, *get_info, sampler_descriptor_size, element_ptr);
@@ -142,6 +142,7 @@ vkGetDescriptorSetLayoutSizeEXT: PFN_vkGetDescriptorSetLayoutSizeEXT;
 vkGetDescriptorSetLayoutBindingOffsetEXT: PFN_vkGetDescriptorSetLayoutBindingOffsetEXT;
 vkGetDescriptorEXT: PFN_vkGetDescriptorEXT;
 vkCmdBindDescriptorBuffersEXT: PFN_vkCmdBindDescriptorBuffersEXT;
+vkCmdSetDescriptorBufferOffsetsEXT: PFN_vkCmdSetDescriptorBufferOffsetsEXT;
 
 align_forward :: (size: VkDeviceSize, align: VkDeviceSize) -> VkDeviceSize {
     return (size + align - 1) & ~(align - 1);

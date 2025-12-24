@@ -111,6 +111,7 @@ gpu_create_graphics_pipeline :: (vertex_spirv: [] u8, pixel_spirv: [] u8, raster
     //}
 
     pipeline_create_info := VkGraphicsPipelineCreateInfo.{
+        flags = .CREATE_DESCRIPTOR_BUFFER_BIT_EXT,
         pNext = *pipeline_rendering_create_info,
         stageCount = shader_stages.count.(u32),
         pStages = shader_stages.data,

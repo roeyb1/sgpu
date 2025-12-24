@@ -380,8 +380,8 @@ Gpu_View_Desc :: struct {
 
 Gpu_Sampler_Desc :: struct {
     Filter :: enum {
-        NEAREST;
-        LINEAR;
+        NEAREST :: 0;
+        LINEAR  :: 1;
     }
 
     Address_Mode :: enum {
@@ -906,6 +906,7 @@ create_device :: () {
         #insert #run generate_get_device_proc_addr("vkGetDescriptorSetLayoutBindingOffsetEXT");
         #insert #run generate_get_device_proc_addr("vkGetDescriptorEXT");
         #insert #run generate_get_device_proc_addr("vkCmdBindDescriptorBuffersEXT");
+        #insert #run generate_get_device_proc_addr("vkCmdSetDescriptorBufferOffsetsEXT");
     }
 }
 
