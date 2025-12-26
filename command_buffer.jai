@@ -295,6 +295,12 @@ gpu_enqueue_destroy :: (queue_handle: Gpu_Queue, cmd: Gpu_Command_Buffer, gpu_pt
     array_add(garbage_list, .{queue.timeline_value, gpu_ptr});
 }
 
+gpu_enqueue_destroy :: (queue_handle: Gpu_Queue, cmd: Gpu_Command_Buffer, texture: Gpu_Texture) {
+    queue := get_queue(queue_handle);
+    garbage_list := *garbage_textures[queue.global_index];
+    array_add(garbage_list, .{queue.timeline_value, texture});
+}
+
 #scope_module
 
 MAX_COMMAND_POOLS :: 128;
@@ -325,12 +331,20 @@ Garbage_Allocation :: struct {
     ptr: Gpu_Ptr;
 }
 
+Garbage_Texture :: struct {
+    // #todo: should we support multiple queues referencing this object or just a single one?
+    queue_submit_timeline_value: u64;
+    handle: Gpu_Texture;
+}
+
 live_pools: [MAX_COMMAND_POOLS * queues.count] *Command_Pool;
 cmd_buffer_indices: Table(Gpu_Command_Buffer, s64);
 
 // #TODO: fixed size allocation but can resizeable count within that buffer.
 garbage_pools: [queues.count] [..] Garbage_Command_Pool;
+
 garbage_allocations: [queues.count] [..] Garbage_Allocation;
+garbage_textures: [queues.count] [..] Garbage_Texture;
 
 reclaim_completed_command_pools :: () {
     for * arena, queue_index : cmd_pools {
@@ -340,7 +354,7 @@ reclaim_completed_command_pools :: () {
         assert_vk_result(vk_result);
 
         for garbage_pools[queue_index] {
-            if it.queue_submit_timeline_value <= current_timeline_value {
+            if it.queue_submit_timeline_value < current_timeline_value {
                 vk_result = vkResetCommandPool(vk_device, it.pool.vk_cmd_pool, 0);
                 assert_vk_result(vk_result);
                 
@@ -349,8 +363,15 @@ reclaim_completed_command_pools :: () {
             }
         }
         for garbage_allocations[queue_index] {
-            if it.queue_submit_timeline_value <= current_timeline_value {
+            if it.queue_submit_timeline_value < current_timeline_value {
                 gpu_free(it.ptr);
+                
+                remove it;
+            }
+        }
+        for garbage_textures[queue_index] {
+            if it.queue_submit_timeline_value < current_timeline_value {
+                gpu_free(it.handle);
                 
                 remove it;
             }
@@ -412,8 +433,8 @@ submit_command_buffer :: (using submit_info: Submit_Info) {
         array_add(*all_wait_values, 0);
     }
     for wait_timelines {
-        array_add(*all_signal_semaphores, get_semaphore(it.semaphore).vk_semaphore);
-        array_add(*all_signal_values, it.value);
+        array_add(*all_wait_semaphores, get_semaphore(it.semaphore).vk_semaphore);
+        array_add(*all_wait_values, it.value);
     }
 
     timeline_info := VkTimelineSemaphoreSubmitInfo.{
