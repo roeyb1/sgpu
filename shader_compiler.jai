@@ -7,8 +7,6 @@ compile_shader :: (shader_path: string, output_directory: string = "", debug_sym
 
     filename := shader_path;
 
-    log("Compiling shader %...", shader_path);
-
     options: [..] slang.CompilerOptionEntry;
     options.allocator = temp;
     array_add(*options, .{
@@ -65,6 +63,8 @@ compile_shader :: (shader_path: string, output_directory: string = "", debug_sym
 
     session: *slang.ISession;
     slang.IGlobalSession_createSession(global_session, *session_desc, *session);
+    if !session then return false, .[];
+    defer slang.ISlangUnknown_release(session);
 
     diagnostic_blob: *slang.IBlob;
     slang_module := slang.ISession_loadModule(session, temp_c_string(shader_path), *diagnostic_blob);
@@ -89,6 +89,7 @@ compile_shader :: (shader_path: string, output_directory: string = "", debug_sym
     slang.ISession_createCompositeComponentType(session, components.data, components.count, *composed_program, *diagnostic_blob);
     if diagnostic_blob then log_diagnostic_blob(diagnostic_blob);
     if !composed_program then return false, .{};
+    defer slang.ISlangUnknown_release(composed_program);
 
     linked_program: *slang.IComponentType;
     slang.IComponentType_link(composed_program, *linked_program);
@@ -104,8 +105,6 @@ compile_shader :: (shader_path: string, output_directory: string = "", debug_sym
     memcpy(spirv_code_raw.data, slang.ISlangBlob_getBufferPointer(spirv_code), spirv_code_raw.count);
 
     slang.ISlangUnknown_release(spirv_code);
-    slang.ISlangUnknown_release(composed_program);
-    slang.ISlangUnknown_release(session);
 
     if output_directory {
         output_path := tprint("%/%.spv", output_directory, path_strip_extension(filename));
@@ -123,7 +122,11 @@ log_diagnostic_blob :: (blob: *slang.IBlob) {
         data = slang.ISlangBlob_getBufferPointer(blob),
         count = xx slang.ISlangBlob_getBufferSize(blob),
     };
+
+    // #todo: how to pass shader compilation failures up to the user.
     log_error("%", diagnostic_string);
+
+    slang.ISlangUnknown_release(blob);
 }
 
 create_session :: () {

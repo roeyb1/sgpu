@@ -403,7 +403,7 @@ submit_command_buffer :: (using submit_info: Submit_Info) {
         array_add(*all_signal_values, 0);
     }
     for signal_timelines {
-        array_add(*all_signal_semaphores, get_semaphore(it.semaphore));
+        array_add(*all_signal_semaphores, get_semaphore(it.semaphore).vk_semaphore);
         array_add(*all_signal_values, it.value);
     }
 
@@ -412,7 +412,7 @@ submit_command_buffer :: (using submit_info: Submit_Info) {
         array_add(*all_wait_values, 0);
     }
     for wait_timelines {
-        array_add(*all_signal_semaphores, get_semaphore(it.semaphore));
+        array_add(*all_signal_semaphores, get_semaphore(it.semaphore).vk_semaphore);
         array_add(*all_signal_values, it.value);
     }
 

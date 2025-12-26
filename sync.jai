@@ -16,11 +16,17 @@ gpu_create_semaphore :: (initial: u64) -> Gpu_Semaphore {
 
     vk_semaphore: VkSemaphore;
     vk_result := vkCreateSemaphore(vk_device, *create_info, null, *vk_semaphore);
-    assert_vk_result(vk_result);
+    if vk_result != .SUCCESS {
+        return 0;
+    }
 
     handle := pool_add(*live_semaphores, .{vk_semaphore});
+    if handle == 0 {
+        log_error("Exceeded semaphore allocation capacity (%)!", live_semaphores.max);
+        return 0;
+    }
 
-    return handle.(Gpu_Semaphore);
+    return handle;
 }
 
 gpu_wait_semaphore :: (timeline: Gpu_Timeline_Pair) {
@@ -37,8 +43,9 @@ gpu_wait_semaphore :: (timeline: Gpu_Timeline_Pair) {
 
 gpu_destroy_semaphore :: (semaphore_handle: Gpu_Semaphore) {
     removed, semaphore := pool_remove(*live_semaphores, semaphore_handle);
-    assert(removed);
-    vkDestroySemaphore(vk_device, semaphore.vk_semaphore, null);
+    if removed {
+        vkDestroySemaphore(vk_device, semaphore.vk_semaphore, null);
+    }
 }
 
 #scope_module
@@ -47,10 +54,9 @@ Semaphore :: struct {
     vk_semaphore: VkSemaphore;
 }
 
-get_semaphore :: (semaphore_handle: Gpu_Semaphore) -> VkSemaphore {
+get_semaphore :: (semaphore_handle: Gpu_Semaphore) -> *Semaphore {
     semaphore := pool_get(live_semaphores, semaphore_handle);
-    assert(semaphore != null);
-    return semaphore.vk_semaphore;
+    return semaphore;
 }
 
 live_semaphores: Pool(Gpu_Semaphore, Semaphore);

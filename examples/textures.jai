@@ -28,8 +28,9 @@ main :: () {
 
     // Link the shaders into a pipeline object. Notably all pipeline objects in sgpu use an identical pipeline layout.
     graphics_pipeline := gpu_create_graphics_pipeline(vertex_spv, pixel_spv, raster_desc);
+    free(vertex_spv.data);
+    free(pixel_spv.data);
     defer gpu_free_pipeline(graphics_pipeline);
-
 
     upload_complete_semaphore := gpu_create_semaphore(0);
     defer gpu_destroy_semaphore(upload_complete_semaphore);

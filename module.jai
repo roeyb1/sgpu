@@ -1,4 +1,4 @@
-#module_parameters(VALIDATION := false, ENABLE_RENDER_CAPTURE := false);
+#module_parameters(VALIDATION := false, ENABLE_RENDER_CAPTURE := false, DEBUG_ASSERTS := false);
 
 Gpu_Pipeline :: #type,distinct s64;
 
@@ -450,16 +450,23 @@ Gpu_Render_Pass_Desc :: struct {
 
 // ----------------------------- Global ------------------------------------
 
-gpu_init :: () {
+gpu_init :: () -> bool {
     remember_allocator();
 
     #if ENABLE_RENDER_CAPTURE {
         gpu_capture_init();
     }
-    create_instance();
-    create_device();
-    create_descriptor_buffer();
-    create_global_pipeline_layout();
+    result := create_instance();
+    if !result then return false;
+    result = create_device();
+    if !result then return false;
+    result = create_descriptor_buffer();
+    if !result then return false;
+
+    result = create_global_pipeline_layout();
+    if !result then return false;
+
+    return true;
 }
 
 gpu_shutdown :: () {
@@ -533,7 +540,13 @@ assert_vk_result :: (result: VkResult) {
     assert(result == VkResult.SUCCESS);
 }
 
-create_instance :: () {
+debug_assert :: (arg: bool, message := "", args: ..Any, loc := #caller_location) #no_debug #expand {
+    #if DEBUG_ASSERTS {
+        assert(arg, message, args, loc);
+    }
+}
+
+create_instance :: () -> bool {
     auto_release_temp();
     push_allocator(temp);
 
@@ -553,14 +566,12 @@ create_instance :: () {
     }
     {
         count: u32;
-        result = vkEnumerateInstanceExtensionProperties(null, *count, null);
-        assert_vk_result(result);
+        vkEnumerateInstanceExtensionProperties(null, *count, null);
 
         available_extensions: [..] VkExtensionProperties;
         array_resize(*available_extensions, count);
 
-        result = vkEnumerateInstanceExtensionProperties(null, *count, available_extensions.data);
-        assert_vk_result(result);
+        vkEnumerateInstanceExtensionProperties(null, *count, available_extensions.data);
 
         for optional : optional_extensions {
             for available : available_extensions {
@@ -608,7 +619,9 @@ create_instance :: () {
     }
 
     result = vkCreateInstance(*create_info, null, *vk_instance);
-    assert_vk_result(result);
+    if result != .SUCCESS {
+        return false;
+    }
 
     #if VALIDATION {
         vkCreateDebugReportCallbackEXT: PFN_vkCreateDebugReportCallbackEXT = xx vkGetInstanceProcAddr(vk_instance, "vkCreateDebugReportCallbackEXT");
@@ -622,9 +635,11 @@ create_instance :: () {
             vkCreateDebugReportCallbackEXT(vk_instance, *debug_callback_create_info, null, *vk_debug_callback_handle);
         }
     }
+
+    return true;
 }
 
-create_device :: () {
+create_device :: () -> bool {
     auto_release_temp();
     push_allocator(temp);
 
@@ -644,15 +659,15 @@ create_device :: () {
         device_scores: [..] s32;
 
         physical_device_count: u32;
-        result = vkEnumeratePhysicalDevices(vk_instance, *physical_device_count, null);
-        assert_vk_result(result);
+        vkEnumeratePhysicalDevices(vk_instance, *physical_device_count, null);
 
         array_resize(*device_handles, physical_device_count);
         array_resize(*device_scores, physical_device_count);
-        result = vkEnumeratePhysicalDevices(vk_instance, *physical_device_count, device_handles.data);
-        assert_vk_result(result);
+        vkEnumeratePhysicalDevices(vk_instance, *physical_device_count, device_handles.data);
 
-        assert(physical_device_count > 0);
+        if physical_device_count == 0 {
+            return false;
+        }
 
 
         for device_handles {
@@ -685,7 +700,10 @@ create_device :: () {
             }
         }
 
-        assert(best_score > 0, "None of the available physical devices satisfy the minimum requirements!");
+        if best_score == 0 {
+            //assert(best_score > 0, "None of the available physical devices satisfy the minimum requirements!");
+            return false;
+        }
         vk_physical_device = device_handles[best_device_index];
         vkGetPhysicalDeviceProperties2(vk_physical_device, *vk_physical_device_properties);
     }
@@ -816,7 +834,9 @@ create_device :: () {
         };
 
         result = vkCreateDevice(vk_physical_device, *create_info, null, *vk_device);
-        assert_vk_result(result);
+        if result != .SUCCESS {
+            return false;
+        }
     }
 
     // initialize the queues:
@@ -846,7 +866,9 @@ create_device :: () {
             };
 
             result = vkCreateSemaphore(vk_device, *create_info, null, *it.timeline);
-            assert_vk_result(result);
+            if result != .SUCCESS {
+                return false;
+            }
         }
     }
 
@@ -864,11 +886,14 @@ create_device :: () {
         };
 
         result = vmaCreateAllocator(*allocator_info, *vma);
-        assert_vk_result(result);
+        if result != .SUCCESS {
+            return false;
+        }
     }
 
     // load extension function pointers
     {
+        loaded_all_pfns: bool = true;
         #insert #run generate_get_device_proc_addr("vkCmdBeginRenderingKHR");
         #insert #run generate_get_device_proc_addr("vkCmdEndRenderingKHR");
         #insert #run generate_get_device_proc_addr("vkGetDescriptorSetLayoutSizeEXT");
@@ -877,13 +902,16 @@ create_device :: () {
         #insert #run generate_get_device_proc_addr("vkGetDescriptorEXT");
         #insert #run generate_get_device_proc_addr("vkCmdBindDescriptorBuffersEXT");
         #insert #run generate_get_device_proc_addr("vkCmdSetDescriptorBufferOffsetsEXT");
+        if !loaded_all_pfns then return false;
     }
+
+    return true;
 }
 
 generate_get_device_proc_addr :: (proc_name: string) ->string #compile_time {
     INSERT_STRING :: #string DONE
         %1 = cast(PFN_%1) vkGetDeviceProcAddr(vk_device, "%1");
-        assert(%1 != null);
+        loaded_all_pfns &= %1 != null;
     DONE;
 
     return tprint(INSERT_STRING, proc_name);

@@ -54,11 +54,16 @@ gpu_malloc :: (size: s64, memory_type: Memory_Type = .DEFAULT) -> (mapped: *void
     
     result: Alloc_Info;
     vk_result := vmaCreateBuffer(vma, *buffer_create_info, *alloc_create_info, *result.vk_buffer, *result.allocation, *alloc_info);
-    assert_vk_result(vk_result);
+    if vk_result != .SUCCESS {
+        return null, 0;
+    }
 
     addr_info := VkBufferDeviceAddressInfo.{buffer = result.vk_buffer };
     result.gpu_ptr = cast(Gpu_Ptr) vkGetBufferDeviceAddress(vk_device, *addr_info);
-    assert(result.gpu_ptr != 0);
+    if result.gpu_ptr == 0 {
+        vmaDestroyBuffer(vma, result.vk_buffer, result.allocation);
+        return null, 0;
+    }
 
     mapped := null;
     if memory_type != .GPU {
@@ -76,21 +81,23 @@ gpu_malloc :: (size: s64, memory_type: Memory_Type = .DEFAULT) -> (mapped: *void
 gpu_free :: (ptr: *void) {
     removed, alloc := table_remove(*cpu_allocations, ptr);
     if removed {
-        removed = table_remove(*gpu_allocations, alloc.gpu_ptr);
-        assert(removed);
-
-        remove_gpu_memory_range(alloc.gpu_ptr);
-
         vmaDestroyBuffer(vma, alloc.vk_buffer, alloc.allocation);
+
+        removed = table_remove(*gpu_allocations, alloc.gpu_ptr);
+        debug_assert(removed);
+
+        removed = remove_gpu_memory_range(alloc.gpu_ptr);
+        debug_assert(removed);
     }
 }
 
 gpu_free :: (gpu_ptr: Gpu_Ptr) {
     removed, alloc := table_remove(*gpu_allocations, gpu_ptr);
     if removed {
-        remove_gpu_memory_range(alloc.gpu_ptr);
-
         vmaDestroyBuffer(vma, alloc.vk_buffer, alloc.allocation);
+    
+        removed = remove_gpu_memory_range(alloc.gpu_ptr);
+        debug_assert(removed);
     }
 }
 
@@ -134,27 +141,32 @@ find_memory_range :: (ptr: Gpu_Ptr) -> Gpu_Memory_Range {
     return .{};
 }
 
-remove_gpu_memory_range :: (start_ptr: Gpu_Ptr) {
+remove_gpu_memory_range :: (start_ptr: Gpu_Ptr) -> bool {
     for gpu_memory_ranges {
         if it.start == start_ptr {
             remove it;
-            return;
+            return true;
         }
     }
+    return false;
 }
 
 get_buffer :: (gpu_ptr: Gpu_Ptr) -> VkBuffer {
     found, alloc := table_find(*gpu_allocations, gpu_ptr);
-    assert(found);
+    if !found {
+        return VK_NULL_HANDLE;
+    }
     return alloc.vk_buffer;
 }
 
 get_buffer_and_offset :: (gpu_ptr: Gpu_Ptr) -> VkBuffer, s64 {
     range := find_memory_range(gpu_ptr);
-    assert(range.start != 0);
+    if range.start == 0 {
+        return VK_NULL_HANDLE, 0;
+    }
 
     vk_buffer := get_buffer(range.start);
-
+    debug_assert(vk_buffer != VK_NULL_HANDLE);
     return vk_buffer, (gpu_ptr - range.start).(s64);
 }
 

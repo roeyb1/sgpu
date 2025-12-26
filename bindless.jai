@@ -4,7 +4,7 @@ TEXTURE_BINDING :: 0;
 RW_TEXTURE_BINDING :: 1;
 SAMPLER_BINDING :: 2;
 
-create_descriptor_buffer :: () {
+create_descriptor_buffer :: () -> bool {
     properties: VkPhysicalDeviceProperties2;
     properties.pNext = *descriptor_properties;
     vkGetPhysicalDeviceProperties2(vk_physical_device, *properties);
@@ -42,7 +42,9 @@ create_descriptor_buffer :: () {
 
 
     vk_result := vkCreateDescriptorSetLayout(vk_device, *create_info, null, *bindless_set_layout);
-    assert_vk_result(vk_result);
+    if vk_result != .SUCCESS {
+        return false;
+    }
 
     descriptor_buffer_size: VkDeviceSize;
     // calculate size + offset.
@@ -66,11 +68,22 @@ create_descriptor_buffer :: () {
 
     alloc_info: VmaAllocationInfo;
     vk_result = vmaCreateBuffer(vma, *buffer_create_info, *alloc_create_info, *bindless_buffer.vk_buffer, *bindless_buffer.allocation, *alloc_info);
-    assert_vk_result(vk_result);
+    if vk_result != .SUCCESS {
+        vkDestroyDescriptorSetLayout(vk_device, bindless_set_layout, null);
+        return false;
+    }
 
     addr_info := VkBufferDeviceAddressInfo.{buffer = bindless_buffer.vk_buffer };
     bindless_buffer.gpu_ptr = vkGetBufferDeviceAddress(vk_device, *addr_info);
     bindless_buffer.mapped = alloc_info.pMappedData;
+
+    if bindless_buffer.gpu_ptr == 0 {
+        vmaDestroyBuffer(vma, bindless_buffer.vk_buffer, bindless_buffer.allocation);
+        vkDestroyDescriptorSetLayout(vk_device, bindless_set_layout, null);
+        return false;
+    }
+
+    return true;
 }
 
 bind_descriptor_buffer :: (cmd_buff: VkCommandBuffer, bind_point: VkPipelineBindPoint) {

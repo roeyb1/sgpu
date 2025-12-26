@@ -24,9 +24,15 @@ gpu_create_texture :: (desc: Gpu_Texture_Desc) -> Gpu_Texture {
 
     alloc_info: VmaAllocationInfo;
     vk_result := vmaCreateImage(vma, *image_create_info, *alloc_create_info, *image, *alloc, *alloc_info);
-    assert_vk_result(vk_result);
+    if vk_result != .SUCCESS {
+        return 0;
+    }
 
     handle := pool_add(*live_textures, .{desc = desc, vk_image = image, allocation = alloc});
+    if handle == 0 {
+        log_error("Exceeded maximum number of allocated textures (%)!", live_textures.max);
+        return 0;
+    }
     
     transfer_queue := gpu_get_queue(.MAIN, 0);
     cmd_buff := gpu_start_command_recording(transfer_queue);
@@ -64,7 +70,7 @@ gpu_create_texture :: (desc: Gpu_Texture_Desc) -> Gpu_Texture {
 
 gpu_free :: (texture_handle: Gpu_Texture) {
     found, texture := pool_remove(*live_textures, texture_handle);
-    assert(found);
+    if !found then return;
 
     for texture.views {
         cleanup_texture_view(it);
@@ -110,7 +116,7 @@ gpu_copy_from_texture :: (cmd: Gpu_Command_Buffer, dest: Gpu_Ptr, src: Gpu_Ptr, 
 
 gpu_texture_view :: (texture_handle: Gpu_Texture, desc: Gpu_View_Desc = .{}) -> Gpu_Texture_View {
     texture := pool_get(live_textures, texture_handle);
-    assert(texture != null);
+    if !texture then return 0;
 
     // if the view desc doesn't define a specific format then just use the texture native format.
     format := ifx desc.format != .UNDEFINED then desc.format else texture.desc.format;
@@ -133,6 +139,11 @@ gpu_texture_view :: (texture_handle: Gpu_Texture, desc: Gpu_View_Desc = .{}) -> 
     assert_vk_result(vk_result);
 
     handle := pool_add(*live_views, .{desc, texture_handle, vk_view});
+
+    if handle == 0 {
+        log_error("Exceeded maximum number of texture views (%)!", live_views.max);
+        return 0;
+    }
 
     array_add(*texture.views, handle,, cpu_allocator);
 
@@ -172,10 +183,15 @@ gpu_create_sampler :: (desc: Gpu_Sampler_Desc) -> Gpu_Sampler {
 
     vk_sampler: VkSampler;
     vk_result := vkCreateSampler(vk_device, *create_info, null, *vk_sampler);
-    assert_vk_result(vk_result);
+    if vk_result != .SUCCESS {
+        return 0;
+    }
 
     handle := pool_add(*live_samplers, vk_sampler);
-    assert(handle != 0);
+    if handle == 0 {
+        log_error("Exceeded maximum number of texture samplers (%)!", live_samplers.max);
+        return 0;
+    }
 
     write_sampler_descriptor(vk_sampler, handle);
 
@@ -184,9 +200,9 @@ gpu_create_sampler :: (desc: Gpu_Sampler_Desc) -> Gpu_Sampler {
 
 gpu_free :: (sampler: Gpu_Sampler) {
     removed, sampler := pool_remove(*live_samplers, sampler);
-    assert(removed);
-
-    vkDestroySampler(vk_device, sampler, null);
+    if removed {
+        vkDestroySampler(vk_device, sampler, null);
+    }
 }
 
 #scope_module
@@ -230,19 +246,17 @@ get_image_aspect_mask :: (format: Format) -> VkImageAspectFlags {
 
 cleanup_texture_view :: (view_handle: Gpu_Texture_View) {
     removed, view := pool_remove(*live_views, view_handle);
-    assert(removed);
-
-    vkDestroyImageView(vk_device, view.vk_view, null);
+    if removed {
+        vkDestroyImageView(vk_device, view.vk_view, null);
+    }
 }
 
 get_texture :: (texture_handle: Gpu_Texture) -> *Texture{
     texture := pool_get(live_textures, texture_handle);
-    assert(texture != null);
     return texture;
 }
 
 get_texture_view :: (view_handle: Gpu_Texture_View) -> *Texture_View {
     view := pool_get(live_views, view_handle);
-    assert(view != null);
     return view;
 }

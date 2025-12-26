@@ -11,22 +11,28 @@ pool_add :: (using pool: *Pool, item: pool.Value_Type) -> pool.Handle_Type {
         index := pop(*free_list);
         values[index] = item;
         return (index + 1).(pool.Handle_Type);
-    } else {
-        assert(values.count < pool.max, "pool ran out of valid handle ids");
+    } else if values.count < pool.max {
         array_add(*values, item,, allocator);
         return values.count.(pool.Handle_Type);
+    } else {
+        return 0;
     }
 }
 
 pool_remove :: (using pool: *Pool, handle: pool.Handle_Type) -> bool, pool.Value_Type {
     index := (handle - 1).(s64);
-    assert(index >= 0 && index < values.count);
+    if index < 0 || index >= values.count {
+        default_v: pool.Value_Type;
+        return false, default_v;
+    }
     array_add(*free_list, index,, allocator);
     return true, values[index];
 }
 
 pool_get :: (using pool: Pool, handle: pool.Handle_Type) -> *pool.Value_Type {
     index := (handle - 1).(s64);
-    assert(index >= 0 && index < values.count);
+    if index < 0 || index >= values.count {
+        return null;
+    }
     return *values[index];
 }

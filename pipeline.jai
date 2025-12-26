@@ -24,6 +24,11 @@ gpu_create_graphics_pipeline :: (vertex_spirv: [] u8, pixel_spirv: [] u8, raster
         create_shader_stage(vertex_spirv, .VERTEX_BIT),
         create_shader_stage(pixel_spirv, .FRAGMENT_BIT)
     ];
+    defer {
+        for shader_stages {
+            vkDestroyShaderModule(vk_device, it.module, null);
+        }
+    }
 
     attachment_formats: [MAX_ATTACHMENTS] VkFormat;
 
@@ -131,9 +136,8 @@ gpu_create_graphics_pipeline :: (vertex_spirv: [] u8, pixel_spirv: [] u8, raster
 
     vk_pipeline: VkPipeline;
     vk_result := vkCreateGraphicsPipelines(vk_device, null, 1, *pipeline_create_info, null, *vk_pipeline);
-
-    for shader_stages {
-        vkDestroyShaderModule(vk_device, it.module, null);
+    if vk_result != .SUCCESS {
+        return 0;
     }
     
     handle := pool_add(*live_pipelines, .{.GRAPHICS, vk_pipeline});
@@ -142,9 +146,9 @@ gpu_create_graphics_pipeline :: (vertex_spirv: [] u8, pixel_spirv: [] u8, raster
 
 gpu_free_pipeline :: (pipeline: Gpu_Pipeline) {
     removed, pipeline := pool_remove(*live_pipelines, pipeline);
-    assert(removed);
-
-    vkDestroyPipeline(vk_device, pipeline.vk_pipeline, null);
+    if removed {
+        vkDestroyPipeline(vk_device, pipeline.vk_pipeline, null);
+    }
 }
 
 #scope_module
@@ -173,7 +177,7 @@ Pipeline :: struct {
 vk_pipeline_layout: VkPipelineLayout;
 live_pipelines: Pool(Gpu_Pipeline, Pipeline);
 
-create_global_pipeline_layout :: () {
+create_global_pipeline_layout :: ()  -> bool {
     push_const_ranges: [NUM_SHADER_STAGES] VkPushConstantRange;
     ALL_STAGES :: #run enum_values_as_enum(Shader_Stage);
     for ALL_STAGES {
@@ -192,6 +196,8 @@ create_global_pipeline_layout :: () {
     };
     vk_result := vkCreatePipelineLayout(vk_device, *create_info, null, *vk_pipeline_layout);
     assert_vk_result(vk_result);
+
+    return true;
 }
 
 create_shader_stage :: (spirv: [] u8, stage: VkShaderStageFlagBits) -> VkPipelineShaderStageCreateInfo {
