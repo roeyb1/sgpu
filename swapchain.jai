@@ -36,7 +36,7 @@ gpu_init_swapchain :: (native_window: u64, window_type: Native_Window_Type) {
         vkCreateSemaphore(vk_device, *semaphore_create_info, null, *present_semaphores[it]);
     }
 
-    frame_timeline = gpu_create_semaphore(0);
+    gpu_frame_timeline = gpu_create_semaphore(0);
 }
 
 gpu_swapchain_resize :: () {
@@ -47,7 +47,7 @@ gpu_swapchain_resize :: () {
 gpu_destroy_swapchain :: () {
     cleanup_swapchain_image_views();
 
-    gpu_destroy_semaphore(frame_timeline);
+    gpu_destroy_semaphore(gpu_frame_timeline);
 
     for acquire_semaphores {
         vkDestroySemaphore(vk_device, it, null);
@@ -63,16 +63,12 @@ gpu_destroy_swapchain :: () {
 gpu_swapchain_acquire :: () -> Gpu_Texture_View {
     wait_next_frame();
 
-    acquire_semaphore_index = (frame_timeline_cpu + 1) % MAX_FRAMES_IN_FLIGHT;
+    acquire_semaphore_index = (cpu_frame_timeline + 1) % MAX_FRAMES_IN_FLIGHT;
     acquire_semaphore := acquire_semaphores[acquire_semaphore_index];
     vk_result := vkAcquireNextImageKHR(vk_device, vk_swapchain, U64_MAX, acquire_semaphore, null, *current_swapchain_index);
-    if vk_result == .ERROR_OUT_OF_DATE_KHR || vk_result == .SUBOPTIMAL_KHR {
-        gpu_swapchain_resize();
-        vk_result = vkAcquireNextImageKHR(vk_device, vk_swapchain, U64_MAX, acquire_semaphore, null, *current_swapchain_index);
-    }
     
     if vk_result == .SUCCESS {
-        frame_timeline_cpu += 1;
+        cpu_frame_timeline += 1;
 
         queue_handle := gpu_get_queue(.MAIN, 0);
         cmd_buff := gpu_start_command_recording(queue_handle);
@@ -138,14 +134,14 @@ gpu_submit_and_present :: (queue_handle: Gpu_Queue, cmd_buff: Gpu_Command_Buffer
     submit_command_buffer(.{
         queue_handle = queue_handle,
         cmd_buff = cmd_buff,
-        signal_semaphores = .[current_present_semaphore(), get_semaphore(frame_timeline)],
-        signal_values = .[0, frame_timeline_cpu],
+        signal_semaphores = .[current_present_semaphore(), get_semaphore(gpu_frame_timeline)],
+        signal_values = .[0, cpu_frame_timeline],
     });
 
     gpu_present();
 }
 
-gpu_frame_timeline :: () -> Gpu_Semaphore {
+gpu_get_frame_timeline :: () -> Gpu_Semaphore {
     return frame_timeline;
 }
 
@@ -281,8 +277,8 @@ cleanup_swapchain_image_views :: () {
 
 
 wait_next_frame :: () {
-    if frame_timeline_cpu > MAX_FRAMES_IN_FLIGHT {
-        gpu_wait_semaphore(frame_timeline, frame_timeline_cpu - MAX_FRAMES_IN_FLIGHT);
+    if cpu_frame_timeline > MAX_FRAMES_IN_FLIGHT {
+        gpu_wait_semaphore(gpu_frame_timeline, cast(u64) max(0, cpu_frame_timeline.(s64) + 1 - MAX_FRAMES_IN_FLIGHT));
     }
 }
 
@@ -339,8 +335,11 @@ MAX_FRAMES_IN_FLIGHT :: 3;
 acquire_semaphores: [MAX_FRAMES_IN_FLIGHT] VkSemaphore;
 present_semaphores: [MAX_FRAMES_IN_FLIGHT] VkSemaphore;
 
-frame_timeline: Gpu_Semaphore;
-frame_timeline_cpu: u64;
+// gpu_frame_timeline represents the current frame index on the gpu
+// while cpu_frame_timeline represents the current frame index on the cpu.
+// The difference between GPU timeline and CPU timeline values should be the number of active frames in flight.
+gpu_frame_timeline: Gpu_Semaphore;
+cpu_frame_timeline: u64;
 
 // #todo: these should be made static with a hard cap.
 swapchain_images: [..] VkImage;
