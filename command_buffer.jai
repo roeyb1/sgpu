@@ -69,11 +69,8 @@ gpu_start_command_recording :: (queue_handle: Gpu_Queue) -> Gpu_Command_Buffer {
     return cmd_buff_handle;
 }
 
-gpu_submit :: (queue_handle: Gpu_Queue, buffer: Gpu_Command_Buffer, signal: Gpu_Semaphore, signal_value: u64) {
-    submit_command_buffer(.{queue_handle = queue_handle, cmd_buff = buffer, signal_semaphores = .[get_semaphore(signal)], signal_values = .[signal_value]});
-}
-gpu_submit :: (queue_handle: Gpu_Queue, buffer: Gpu_Command_Buffer) {
-    submit_command_buffer(.{queue_handle = queue_handle, cmd_buff = buffer });
+gpu_submit :: (queue_handle: Gpu_Queue, buffer: Gpu_Command_Buffer, signals: [] Gpu_Timeline_Pair = .[], waits: [] Gpu_Timeline_Pair = .[]) {
+    submit_command_buffer(.{queue_handle = queue_handle, cmd_buff = buffer, signal_timelines = signals, wait_timelines = waits });
 }
 
 gpu_memcpy :: (cmd: Gpu_Command_Buffer, dest: Gpu_Ptr, src: Gpu_Ptr, num_bytes: s64) {
@@ -354,9 +351,9 @@ Submit_Info :: struct {
     queue_handle: Gpu_Queue;
     cmd_buff: Gpu_Command_Buffer;
     wait_semaphores: [] VkSemaphore = .[];
-    wait_values: [] u64 = .[];
     signal_semaphores: [] VkSemaphore = .[];
-    signal_values: [] u64 = .[];
+    wait_timelines: [] Gpu_Timeline_Pair = .[];
+    signal_timelines: [] Gpu_Timeline_Pair = .[];
 }
 
 submit_command_buffer :: (using submit_info: Submit_Info) {
@@ -374,9 +371,6 @@ submit_command_buffer :: (using submit_info: Submit_Info) {
     auto_release_temp();
     push_allocator(temp);
 
-    assert(signal_semaphores.count == signal_values.count);
-    assert(wait_semaphores.count == wait_values.count);
-
     all_signal_values: [..] u64;
     all_signal_semaphores: [..] VkSemaphore;
     all_wait_values: [..] u64;
@@ -385,12 +379,20 @@ submit_command_buffer :: (using submit_info: Submit_Info) {
     array_add(*all_signal_semaphores, queue.timeline);
     for 0..signal_semaphores.count-1 {
         array_add(*all_signal_semaphores, signal_semaphores[it]);
-        array_add(*all_signal_values, signal_values[it]);
+        array_add(*all_signal_values, 0);
+    }
+    for signal_timelines {
+        array_add(*all_signal_semaphores, get_semaphore(it.semaphore));
+        array_add(*all_signal_values, it.value);
     }
 
     for 0..wait_semaphores.count-1 {
         array_add(*all_wait_semaphores, wait_semaphores[it]);
-        array_add(*all_wait_values, wait_values[it]);
+        array_add(*all_wait_values, 0);
+    }
+    for wait_timelines {
+        array_add(*all_signal_semaphores, get_semaphore(it.semaphore));
+        array_add(*all_signal_values, it.value);
     }
 
     timeline_info := VkTimelineSemaphoreSubmitInfo.{

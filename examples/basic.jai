@@ -42,7 +42,7 @@ main :: () {
     {
         semaphore := gpu_create_semaphore(0);
 
-        gpu_wait_semaphore(semaphore, 0);
+        gpu_wait_semaphore(.{semaphore, 0});
         gpu_destroy_semaphore(semaphore);
     }
 

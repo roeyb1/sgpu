@@ -79,7 +79,6 @@ gpu_swapchain_acquire :: () -> Gpu_Texture_View {
             queue_handle = queue_handle,
             cmd_buff = cmd_buff,
             wait_semaphores = .[current_acquire_semaphore()],
-            wait_values = .[0],
         });
 
         return swapchain_views[current_swapchain_index];
@@ -134,8 +133,8 @@ gpu_submit_and_present :: (queue_handle: Gpu_Queue, cmd_buff: Gpu_Command_Buffer
     submit_command_buffer(.{
         queue_handle = queue_handle,
         cmd_buff = cmd_buff,
-        signal_semaphores = .[current_present_semaphore(), get_semaphore(gpu_frame_timeline)],
-        signal_values = .[0, cpu_frame_timeline],
+        signal_semaphores = .[current_present_semaphore()],
+        signal_timelines = .[.{gpu_frame_timeline, cpu_frame_timeline}]
     });
 
     gpu_present();
@@ -278,7 +277,7 @@ cleanup_swapchain_image_views :: () {
 
 wait_next_frame :: () {
     if cpu_frame_timeline > MAX_FRAMES_IN_FLIGHT {
-        gpu_wait_semaphore(gpu_frame_timeline, cast(u64) max(0, cpu_frame_timeline.(s64) + 1 - MAX_FRAMES_IN_FLIGHT));
+        gpu_wait_semaphore(.{gpu_frame_timeline, cast(u64) max(0, cpu_frame_timeline.(s64) + 1 - MAX_FRAMES_IN_FLIGHT)});
     }
 }
 

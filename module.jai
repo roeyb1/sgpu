@@ -515,44 +515,6 @@ gpu_get_queue :: (queue_type: Gpu_Queue_Type, queue_index: u32) -> Gpu_Queue {
     return 0;
 }
 
-// ----------------------------- Semaphores ------------------------------------
-
-gpu_create_semaphore :: (initial: u64) -> Gpu_Semaphore {
-    timeline_create_info := VkSemaphoreTypeCreateInfo.{
-        semaphoreType = .TIMELINE,
-        initialValue = initial,
-    };
-    create_info := VkSemaphoreCreateInfo.{
-        pNext = *timeline_create_info,
-    };
-
-    vk_semaphore: VkSemaphore;
-    vk_result := vkCreateSemaphore(vk_device, *create_info, null, *vk_semaphore);
-    assert_vk_result(vk_result);
-
-    handle := pool_add(*live_semaphores, .{vk_semaphore});
-
-    return handle.(Gpu_Semaphore);
-}
-
-gpu_wait_semaphore :: (semaphore_handle: Gpu_Semaphore, value: u64) {
-    semaphore := pool_get(live_semaphores, semaphore_handle);
-
-    wait_info := VkSemaphoreWaitInfo.{
-        semaphoreCount = 1,
-        pSemaphores = *semaphore.vk_semaphore,
-        pValues = *value,
-    };
-    vk_result := vkWaitSemaphores(vk_device, *wait_info, U64_MAX);
-    assert_vk_result(vk_result);
-}
-
-gpu_destroy_semaphore :: (semaphore_handle: Gpu_Semaphore) {
-    removed, semaphore := pool_remove(*live_semaphores, semaphore_handle);
-    assert(removed);
-    vkDestroySemaphore(vk_device, semaphore.vk_semaphore, null);
-}
-
 #load "pool.jai";
 #load "memory.jai";
 #load "command_buffer.jai";
@@ -563,6 +525,7 @@ gpu_destroy_semaphore :: (semaphore_handle: Gpu_Semaphore) {
 #load "render_capture.jai";
 #load "gpu_arena.jai";
 #load "swapchain.jai";
+#load "sync.jai";
 
 #scope_module
 
@@ -964,18 +927,6 @@ get_queue :: (queue_handle: Gpu_Queue) -> *Queue {
     assert(queue_index < queues.count);
     return *queues[queue_index];
 }
-
-Semaphore :: struct {
-    vk_semaphore: VkSemaphore;
-}
-
-get_semaphore :: (semaphore_handle: Gpu_Semaphore) -> VkSemaphore {
-    semaphore := pool_get(live_semaphores, semaphore_handle);
-    assert(semaphore != null);
-    return semaphore.vk_semaphore;
-}
-
-live_semaphores: Pool(Gpu_Semaphore, Semaphore);
 
 MAX_BUFFERS  :: 10000;
 MAX_IMAGES   :: 10000;
