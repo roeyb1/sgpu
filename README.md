@@ -2,6 +2,11 @@
 
 Refreshingly simple graphics API inspired by Sebastian Aaltonen's [No Graphics API](https://www.sebastianaaltonen.com/blog/no-graphics-api).
 
+# Upcoming Features
+- Mesh shaders
+- Optional shader hotreloading
+- Optional integrated profiling support (Tracy)
+
 # Texture Quad Sample
 
 ```jai
