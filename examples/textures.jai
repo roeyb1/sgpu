@@ -5,7 +5,7 @@ main :: () {
     // Using Jai's standard window library
     // window creation can be replaced with glfw/sdl/native. Just pass the native handle into `gpu_init_swapchain`.
     window := create_window(1280, 720, "Sample window");
-    
+
     // Initialize the swapchain with any native window handle
     window_type: Native_Window_Type = #ifx OS == .WINDOWS then .WIN32 else .X11;
     gpu_init_swapchain(window.(u64), window_type);

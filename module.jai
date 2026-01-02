@@ -330,11 +330,12 @@ Gpu_Result :: enum s32 {
 
 Gpu_Optional_Features :: enum_flags {
     NONE                    :: 0;
-    SHADER_ATOMIC_INT64     :: 1 << 1;
-    SHADER_INT16            :: 1 << 2;
-    SHADER_INT64            :: 1 << 3;
-    SHADER_INT8             :: 1 << 4;
-    STORAGE_PUSH_CONSTANT_8 :: 1 << 5;
+    DESCRIPTOR_BUFFER       :: 1 << 1;
+    SHADER_ATOMIC_INT64     :: 1 << 2;
+    SHADER_INT16            :: 1 << 3;
+    SHADER_INT64            :: 1 << 4;
+    SHADER_INT8             :: 1 << 5;
+    STORAGE_PUSH_CONSTANT_8 :: 1 << 6;
 
     // -- nyi --
     MESH_SHADERS            ;
@@ -405,7 +406,7 @@ Gpu_Raster_Desc :: struct {
 
     depth_format: Format = .UNDEFINED;
     stencil_format: Format = .UNDEFINED;
-    
+
     color_targets: [] Color_Target;
 
     // Optional blend state baked into the pipeline.
@@ -429,7 +430,7 @@ Gpu_Texture_Desc :: struct {
 Gpu_View_Desc :: struct {
     format: Format = .UNDEFINED;
     base_mip: u8 = 0;
-    mip_count: u8 = 0xFF; 
+    mip_count: u8 = 0xFF;
     base_layer: u16 = 0;
     layer_count: u16 = 0xFFFF;
 }
@@ -522,7 +523,7 @@ Gpu_Render_Pass_Desc :: struct {
 
 // ----------------------------- Global ------------------------------------
 
-gpu_init :: (optional_features: Gpu_Optional_Features = .NONE) -> Gpu_Result {
+gpu_init :: (optional_features: Gpu_Optional_Features = .DESCRIPTOR_BUFFER) -> Gpu_Result {
     remember_allocator();
     requested_optional_features = optional_features;
 
@@ -767,9 +768,11 @@ create_device :: () -> Gpu_Result {
     // #todo: praise the unified layouts! (still not widely available).
     //array_add(*required_extensions, "VK_KHR_unified_layouts");
 
-    optional_extensions[Optional_Extension.DESCRIPTOR_BUFFER] = .{
-        name = "VK_EXT_descriptor_buffer",
-    };
+    if requested_optional_features & .DESCRIPTOR_BUFFER != 0 {
+        optional_extensions[Optional_Extension.DESCRIPTOR_BUFFER] = .{
+            name = "VK_EXT_descriptor_buffer",
+        };
+    }
 
     result: VkResult;
 
@@ -799,7 +802,7 @@ create_device :: () -> Gpu_Result {
             limits_satisfied := device_properties.properties.limits.maxDescriptorSetStorageBuffers >= MAX_BUFFERS
                 && device_properties.properties.limits.maxDescriptorSetStorageImages >= MAX_IMAGES
                 && device_properties.properties.limits.maxDescriptorSetSampledImages >= MAX_IMAGES;
-            
+
             if !limits_satisfied then continue;
 
             if device_properties.properties.deviceType == .DISCRETE_GPU {
@@ -1035,6 +1038,8 @@ create_device :: () -> Gpu_Result {
             vkEnumerateDeviceExtensionProperties(vk_physical_device, null, *extension_count, available_extensions.data);
 
             for * extension_to_check : optional_extensions {
+                if extension_to_check.name == null then continue;
+
                 extension_name := to_string(extension_to_check.name);
 
                 for available_extension: available_extensions {
@@ -1176,7 +1181,7 @@ Queue :: struct {
     global_index: u32;
     index_in_type: u32;
     type: Gpu_Queue_Type;
-    
+
     timeline: VkSemaphore;
     timeline_value: u64;
 }
@@ -1233,7 +1238,7 @@ vkCmdEndRenderingKHR : PFN_vkCmdEndRenderingKHR;
 
             log("Vulkan Validation: %", to_string(msg));
         }
-        
+
         return VK_FALSE;
     }
 
