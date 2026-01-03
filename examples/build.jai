@@ -5,10 +5,10 @@
 
     make_directory_if_it_does_not_exist("bin");
 
-    // compile_example("basic");
-    // compile_example("instanced_drawing");
+    compile_example("basic");
+    compile_example("instanced_drawing");
     compile_example("window");
-    // compile_example("textures");
+    compile_example("textures");
 
     copy_module_libraries_to_target("bin");
 }
