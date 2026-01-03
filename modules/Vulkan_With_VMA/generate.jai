@@ -91,10 +91,6 @@ compile_vulkan_memory_allocator :: () -> bool {
         array_add(*extra_args, "-DVMA_IMPLEMENTATION");
         array_add(*extra_args, "-DNDEBUG");
         array_add(*extra_args, "-fno-exceptions");
-
-        array_add(*extra_args, "-std=c++17");
-        array_add(*extra_args, "-stdlib=libc++");
-        array_add(*extra_args, "-x", "c++");
     }
     // provide path to vulkan.h
     array_add(*extra_args, include);
