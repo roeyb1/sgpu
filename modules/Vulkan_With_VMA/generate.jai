@@ -12,9 +12,14 @@ vulkan_h_location               :: "source/vulkan/vulkan.h";
 
 // if the lib path is empty system_library will be used.
 #if OS == .WINDOWS {
-    vulkan_lib_path :: "libs";
-}  else {
-    vulkan_lib_path :: "";
+    VULKAN_LIB_PATH :: "libs/win";
+    OUTPUT_LIB_PATH :: "win/";
+} else #if OS == .MACOS {
+    VULKAN_LIB_PATH :: "libs/mac";
+    OUTPUT_LIB_PATH :: "mac/";
+} else #if OS == .LINUX {
+    VULKAN_LIB_PATH :: "libs/linux";
+    OUTPUT_LIB_PATH :: "linux/";
 }
 
 #if AT_COMPILE_TIME {
@@ -92,10 +97,11 @@ compile_vulkan_memory_allocator :: () -> bool {
         array_add(*extra_args, "-DNDEBUG");
         array_add(*extra_args, "-fno-exceptions");
     }
+
     // provide path to vulkan.h
     array_add(*extra_args, include);
-    success &= build_cpp_static_lib("libs/VkMemAlloc_DEBUG", src_path, extra=extra_args, debug=true);
-    success &= build_cpp_static_lib("libs/VkMemAlloc", src_path, extra=extra_args, debug=false);
+    success &= build_cpp_static_lib(#run join(OUTPUT_LIB_PATH, "VkMemAlloc_DEBUG"), src_path, extra=extra_args, debug=true);
+    success &= build_cpp_static_lib(#run join(OUTPUT_LIB_PATH, "VkMemAlloc"), src_path, extra=extra_args, debug=false);
     return success;
 }
 
@@ -124,12 +130,12 @@ generate_bindings :: () -> bool {
             assert(false);
         }
 
-        if vulkan_lib_path then array_add(*library_search_paths, vulkan_lib_path);
+        if VULKAN_LIB_PATH then array_add(*library_search_paths, VULKAN_LIB_PATH);
 
         array_add(*source_files, vulkan_h_location);
         if VK_MEM_ALLOC_OUTPUT_BINDINGS {
             array_add(*source_files, "source/vulkan_memory_allocator/vk_mem_alloc.cpp");
-            array_add(*libpaths, "libs");
+            array_add(*libpaths, OUTPUT_LIB_PATH);
             array_add(*libnames, "VkMemAlloc");
         }
 

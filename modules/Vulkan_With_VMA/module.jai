@@ -88,9 +88,9 @@ VK_API_VERSION_PATCH   :: (version: u32) -> u32 { return version & 0xfff; }
 #scope_module // -------------------------------------------------------------------------------------------- { MODULE }
 
     #if USE_LOCAL_VULKAN_DYNAMIC_LIB {
-        libvulkan :: #library "libs/vulkan-1";
+        libvulkan :: #library "libs/win/vulkan-1";
     } else {
-        libvulkan :: #library,no_dll "libs/vulkan-1";
+        libvulkan :: #library,no_dll "libs/win/vulkan-1";
     }
 
     libcpmt :: #library,system,link_always "libcpmt";
@@ -98,18 +98,18 @@ VK_API_VERSION_PATCH   :: (version: u32) -> u32 { return version & 0xfff; }
 #scope_export // -------------------------------------------------------------------------------------------- { EXPORT }
 
     #if MEMORY_ALLOCATOR_DEBUG {
-        vkmemalloc :: #library,no_dll "libs/VkMemAlloc_DEBUG";
+        vkmemalloc :: #library,no_dll "win/VkMemAlloc_DEBUG";
     } else {
-        vkmemalloc :: #library,no_dll "libs/VkMemAlloc";
+        vkmemalloc :: #library,no_dll "win/VkMemAlloc";
     }
 } else #if OS == .LINUX {
     #load "generated_linux.jai";
     #load "linux_extras.jai";
 
     #if MEMORY_ALLOCATOR_DEBUG {
-        vkmemalloc :: #library,no_dll "libs/VkMemAlloc_DEBUG";
+        vkmemalloc :: #library,no_dll "linux/VkMemAlloc_DEBUG";
     } else {
-        vkmemalloc :: #library,no_dll "libs/VkMemAlloc";
+        vkmemalloc :: #library,no_dll "linux/VkMemAlloc";
     }
 
 #scope_module
@@ -125,18 +125,18 @@ VK_API_VERSION_PATCH   :: (version: u32) -> u32 { return version & 0xfff; }
     #load "macos_extras.jai";
 
     #if MEMORY_ALLOCATOR_DEBUG {
-        vkmemalloc :: #library,no_dll "libs/VkMemAlloc_DEBUG";
+        vkmemalloc :: #library,no_dll "mac/VkMemAlloc_DEBUG";
     } else {
-        vkmemalloc :: #library,no_dll "libs/VkMemAlloc";
+        vkmemalloc :: #library,no_dll "mac/VkMemAlloc";
     }
 
 #scope_module
-    lcpp   :: #library,system,link_always "c++";      // libc++
-    lcxxabi:: #library,system,link_always "c++abi";   // často potřeba
+    lcpp   :: #library,system,link_always "c++";
+    lcxxabi:: #library,system,link_always "c++abi";
 
 #scope_export // -------------------------------------------------------------------------------------------- { MODULE }
 
-    libvulkan :: #system_library "libvulkan";
+    libvulkan :: #library,no_dll "libs/mac/libvulkan";
 
 }
 
