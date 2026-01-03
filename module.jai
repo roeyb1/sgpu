@@ -674,6 +674,7 @@ create_instance :: () -> Gpu_Result {
     array_add(*optional_extensions, VK_KHR_SURFACE_EXTENSION_NAME);
     array_add(*optional_extensions, "VK_KHR_win32_surface");
     array_add(*optional_extensions, "VK_KHR_wayland_surface");
+    array_add(*optional_extensions, "VK_EXT_metal_surface");
     array_add(*optional_extensions, "VK_KHR_xlib_surface");
 
     // find extensions

@@ -1,8 +1,19 @@
 main :: () {
     gpu_init();
 
-    window := create_window(1280, 720, "Sample window");
-    gpu_init_swapchain(window.(u64), .X11);
+    #if OS == .MACOS {
+        window := create_window_metal(1280, 720, "Sample window");
+    } else {
+        window := create_window(1280, 720, "Sample window");
+    }
+
+    #if OS == .WINDOWS {
+        gpu_init_swapchain(window.(u64), .WIN32);
+    } else #if OS == .LINUX {
+        gpu_init_swapchain(window.(u64), .X11);
+    } else if OS == .MACOS {
+        gpu_init_swapchain(window.(u64), .COCOA);
+    }
 
     main_queue := gpu_get_queue(.MAIN, 0);
 
@@ -115,3 +126,10 @@ main :: () {
 #import "Basic";
 #import "Window_Creation"(DEFAULT_MSAA = 1);
 #import "Input";
+
+#if OS == .MACOS {
+    #import "Objective_C";
+    #import "Objective_C/AppKit";
+    #import "Metal";
+    #load "macos_window.jai";
+}

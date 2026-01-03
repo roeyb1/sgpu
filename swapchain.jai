@@ -5,6 +5,7 @@ Native_Window_Type :: enum {
     WIN32;
     X11;
     WAYLAND;
+    COCOA;
 }
 
 gpu_init_swapchain :: (native_window: u64, window_type: Native_Window_Type) {
@@ -66,7 +67,7 @@ gpu_swapchain_acquire :: () -> Gpu_Result, Gpu_Texture_View {
     acquire_semaphore_index = (cpu_frame_timeline + 1) % MAX_FRAMES_IN_FLIGHT;
     acquire_semaphore := acquire_semaphores[acquire_semaphore_index];
     vk_result := vkAcquireNextImageKHR(vk_device, vk_swapchain, U64_MAX, acquire_semaphore, null, *current_swapchain_index);
-    
+
     if vk_result == .SUCCESS {
         cpu_frame_timeline += 1;
 
@@ -87,7 +88,7 @@ gpu_swapchain_acquire :: () -> Gpu_Result, Gpu_Texture_View {
         return .SUCCESS, swapchain_views[current_swapchain_index];
     }
 
-    // #todo: this is not actually a success. acquire next image can return out of date and suboptimal which we 
+    // #todo: this is not actually a success. acquire next image can return out of date and suboptimal which we
     // return as succeses but with invalid texture handles. This needs to be updated
     return .SUCCESS, 0;
 }
@@ -275,6 +276,26 @@ create_surface :: () {
             vk_result := vkCreateXlibSurfaceKHR(vk_instance, *create_info, null, *vk_surface);
             assert_vk_result(vk_result);
         }
+    } else #if OS == .MACOS {
+        assert(native_window_type == .COCOA);
+        ns_window := cast(*NSWindow) native_window_handle;
+
+        metal_layer := ns_window_get_metal_layer(ns_window);
+        assert(metal_layer != null);
+
+        create_info := VkMetalSurfaceCreateInfoEXT.{
+            sType  = .METAL_SURFACE_CREATE_INFO_EXT,
+            pNext  = null,
+            flags  = 0,
+            pLayer = metal_layer, // CAMetalLayer*
+        };
+
+        // if !vkCreateMetalSurfaceEXT {
+        //     vkCreateMetalSurfaceEXT = cast(PFN_vkCreateMetalSurfaceEXT) vkGetInstanceProcAddr(vk_instance, "vkCreateMetalSurfaceEXT");
+        // }
+
+        vk_result := vkCreateMetalSurfaceEXT(vk_instance, *create_info, null, *vk_surface);
+        assert_vk_result(vk_result);
     } else {
         assert(false, "swapchain creation unvaiable on this OS");
     }
@@ -376,4 +397,35 @@ acquire_semaphore_index: u64;
 } else #if OS == .LINUX {
     #import "X11";
     vkCreateXlibSurfaceKHR: PFN_vkCreateXlibSurfaceKHR;
+} else #if OS == .MACOS {
+    #import "Objective_C";
+    #import "Objective_C/AppKit";
+
+    // vkCreateXlibSurfaceKHR:
+
+    ns_window_get_metal_layer :: (window: *NSWindow) -> *CAMetalLayer {
+
+        is_kind_of_class :: (obj: id, class: Class) -> bool {
+            sel := sel_registerName("isKindOfClass:");
+            func: (id, Selector, Class) -> BOOL #c_call;
+           	func = xx objc_msgSend;
+            return func(obj, sel, class) == YES;
+        }
+
+        ns_view := NSWindow.contentView(window);
+        if !ns_view {
+            return null;
+        }
+
+        layer := NSView.layer(ns_view);
+        if !layer {
+            return null;
+        }
+
+        if !is_kind_of_class(cast(id) layer, objc_getClass("CAMetalLayer")) {
+            return null;
+        }
+
+        return cast(*CAMetalLayer) layer;
+    }
 }
