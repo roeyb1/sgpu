@@ -22,7 +22,7 @@ gpu_start_command_recording :: (queue_handle: Gpu_Queue) -> Gpu_Result, Gpu_Comm
 
         vk_result := vkCreateCommandPool(vk_device, *create_info, null, *new_pool);
         return_if_error(vk_result, 0);
-        
+
         new_buffer: VkCommandBuffer;
 
         alloc_info := VkCommandBufferAllocateInfo.{
@@ -76,8 +76,8 @@ gpu_memcpy :: (cmd: Gpu_Command_Buffer, dest: Gpu_Ptr, src: Gpu_Ptr, num_bytes: 
     dest_found, dest_alloc_range := find_memory_range(dest);
     source_found, src_alloc_range := find_memory_range(src);
 
-    if !dest_found then return .ERROR_OUT_OF_BOUNDS;
-    if !source_found then return .ERROR_OUT_OF_BOUNDS;
+    if dest_found != .SUCCESS then return .ERROR_OUT_OF_BOUNDS;
+    if source_found != .SUCCESS then return .ERROR_OUT_OF_BOUNDS;
 
     // ensure the copy region is valid for both memory ranges.
     assert(dest + num_bytes.(Gpu_Ptr) <= dest_alloc_range.end);
@@ -302,7 +302,7 @@ gpu_begin_render_pass :: (cmd: Gpu_Command_Buffer, desc: Gpu_Render_Pass_Desc) -
         };
         render_info.pDepthAttachment = *depth_attachment;
     }
-    
+
     stencil_attachment: VkRenderingAttachmentInfo;
     if desc.stencil_target.view != 0 {
         view := get_texture_view(desc.depth_target.view);
@@ -440,7 +440,7 @@ reclaim_completed_command_pools :: () {
             if it.queue_submit_timeline_value < current_timeline_value {
                 vk_result = vkResetCommandPool(vk_device, it.pool.vk_cmd_pool, 0);
                 assert_vk_result(vk_result);
-                
+
                 array_add(*arena.available_pools, it.pool);
                 remove it;
             }
@@ -458,14 +458,14 @@ collect_garbage_resources :: () {
         for garbage_allocations[queue_index] {
             if it.queue_submit_timeline_value < current_timeline_value {
                 gpu_free(it.ptr);
-                
+
                 remove it;
             }
         }
         for garbage_textures[queue_index] {
             if it.queue_submit_timeline_value < current_timeline_value {
                 gpu_free(it.handle);
-                
+
                 remove it;
             }
         }

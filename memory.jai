@@ -22,26 +22,18 @@ gpu_malloc :: (size: s64, memory_type: Memory_Type = .DEFAULT) -> (mapped: *void
             memory_flags |= .DEVICE_LOCAL_BIT;
             memory_usage_flags |= .GPU_ONLY;
         case .READBACK;
-            memory_flags |= .HOST_VISIBLE_BIT | .HOST_CACHED_BIT | .HOST_COHERENT_BIT;
+            memory_flags |= .HOST_VISIBLE_BIT | .HOST_COHERENT_BIT | .HOST_CACHED_BIT;
             memory_usage_flags |= .GPU_TO_CPU;
     }
 
     buffer_create_info := VkBufferCreateInfo.{
-        usage = .STORAGE_BUFFER_BIT | .SHADER_DEVICE_ADDRESS_BIT,
+        // To avoid exposing buffer usage flags to the API, we allow all buffers to be used for any type of operations
+        usage = .STORAGE_BUFFER_BIT | .SHADER_DEVICE_ADDRESS_BIT | .TRANSFER_DST_BIT | .TRANSFER_SRC_BIT,
         size = size.(u64),
         sharingMode = .CONCURRENT,
         queueFamilyIndexCount = num_queue_families,
         pQueueFamilyIndices = queue_family_indices.data
     };
-
-    // I don't want to expose transfer usage flags to the api so just default to always having it
-    // set to SRC_BIT for cpu visible buffers and DST_BIT for gpu buffers
-    if memory_type == .GPU {
-        // #perf: Not sure what kind of impact having transfer_dst on the few buffers that are populated by shaders.
-        buffer_create_info.usage |= .TRANSFER_DST_BIT | .TRANSFER_SRC_BIT;
-    } else {
-        buffer_create_info.usage |= .TRANSFER_SRC_BIT;
-    }
 
     alloc_create_info := VmaAllocationCreateInfo.{
         flags = ifx memory_type != .GPU then .MAPPED_BIT,
@@ -51,7 +43,7 @@ gpu_malloc :: (size: s64, memory_type: Memory_Type = .DEFAULT) -> (mapped: *void
 
 
     alloc_info := VmaAllocationInfo.{};
-    
+
     result: Alloc_Info;
     vk_result := vmaCreateBuffer(vma, *buffer_create_info, *alloc_create_info, *result.vk_buffer, *result.allocation, *alloc_info);
     if vk_result != .SUCCESS {
@@ -95,7 +87,7 @@ gpu_free :: (gpu_ptr: Gpu_Ptr) {
     removed, alloc := table_remove(*gpu_allocations, gpu_ptr);
     if removed {
         vmaDestroyBuffer(vma, alloc.vk_buffer, alloc.allocation);
-    
+
         removed = remove_gpu_memory_range(alloc.gpu_ptr);
         debug_assert(removed);
     }

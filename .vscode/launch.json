@@ -1,93 +1,80 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Basic - Windows",
-            "type": "cppvsdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/examples/bin/basic.exe",
-            "args": [
-            ],
-            "console":"integratedTerminal",
-            "logging": {
-                "moduleLoad": true,
-                "trace": true
-            },
-            "visualizerFile": "${workspaceFolder}/.vscode/jai.natvis",
-            "cwd": "${workspaceRoot}/examples/bin",
-        },
-        {
-            "name": "Textures - Windows",
-            "type": "cppvsdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/examples/bin/textures.exe",
-            "args": [
-            ],
-            "console":"integratedTerminal",
-            "logging": {
-                "moduleLoad": true,
-                "trace": true
-            },
-            "visualizerFile": "${workspaceFolder}/.vscode/jai.natvis",
-            "cwd": "${workspaceRoot}/examples/bin",
-        },
-        {
-            "name": "Basic - Unix",
-            "type": "lldb",
-            "request": "launch",
-            "program": "${workspaceFolder}/examples/bin/basic",
-            "args": [ ],
-            "env": {
-                "LD_LIBRARY_PATH": "${workspaceFolder}/examples/bin"
-            },
-            "cwd": "${workspaceFolder}/examples/bin"
-        },
-        {
-            "name": "Instanced Draw - Unix",
-            "type": "lldb",
-            "request": "launch",
-            "program": "${workspaceFolder}/examples/bin/instanced_drawing",
-            "args": [ ],
-            "env": {
-                "LD_LIBRARY_PATH": "${workspaceFolder}/examples/bin"
-            },
-            "cwd": "${workspaceFolder}/examples/bin"
-        },
-        {
-            "name": "Draw Loop - Unix",
-            "type": "lldb",
-            "request": "launch",
-            "program": "${workspaceFolder}/examples/bin/draw_loop",
-            "args": [ ],
-            "env": {
-                "LD_LIBRARY_PATH": "${workspaceFolder}/examples/bin"
-            },
-            "cwd": "${workspaceFolder}/examples/bin"
-        },
-        {
-            "name": "Window - Unix",
-            "type": "lldb",
-            "request": "launch",
-            "program": "${workspaceFolder}/examples/bin/window",
-            "args": [ ],
-            "env": {
-                "LD_LIBRARY_PATH": "${workspaceFolder}/examples/bin"
-            },
-            "cwd": "${workspaceFolder}/examples/bin"
-        },
-        {
-            "name": "Textures - Unix",
-            "type": "lldb",
-            "request": "launch",
-            "program": "${workspaceFolder}/examples/bin/textures",
-            "args": [ ],
-            "env": {
-                "LD_LIBRARY_PATH": "${workspaceFolder}/examples/bin"
-            },
-            "cwd": "${workspaceFolder}/examples/bin"
-        }
-    ]
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "01_Memory - Windows",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/examples/bin/01_memory.exe",
+      "args": [],
+      "console": "integratedTerminal",
+      "logging": {
+        "moduleLoad": true,
+        "trace": true
+      },
+      "visualizerFile": "${workspaceFolder}/.vscode/jai.natvis",
+      "cwd": "${workspaceRoot}/examples/bin"
+    },
+    {
+      "name": "Textures - Windows",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/examples/bin/textures.exe",
+      "args": [],
+      "console": "integratedTerminal",
+      "logging": {
+        "moduleLoad": true,
+        "trace": true
+      },
+      "visualizerFile": "${workspaceFolder}/.vscode/jai.natvis",
+      "cwd": "${workspaceRoot}/examples/bin"
+    },
+    {
+      "name": "01_Memory - Unix",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/examples/bin/01_memory",
+      "args": [],
+      "env": {
+        "LD_LIBRARY_PATH": "${workspaceFolder}/examples/bin"
+      },
+      "cwd": "${workspaceFolder}/examples/bin"
+    },
+    {
+      "name": "02_Compute - Unix",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/examples/bin/02_compute",
+      "args": [],
+      "env": {
+        "LD_LIBRARY_PATH": "${workspaceFolder}/examples/bin"
+      },
+      "cwd": "${workspaceFolder}/examples/bin"
+    },
+    {
+      "name": "03_Hello Square - Unix",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/examples/bin/03_hello_square",
+      "args": [],
+      "env": {
+        "LD_LIBRARY_PATH": "${workspaceFolder}/examples/bin"
+      },
+      "cwd": "${workspaceFolder}/examples/bin"
+    },
+    {
+      "name": "Textures - Unix",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/examples/bin/textures",
+      "args": [],
+      "env": {
+        "LD_LIBRARY_PATH": "${workspaceFolder}/examples/bin"
+      },
+      "cwd": "${workspaceFolder}/examples/bin"
+    }
+  ]
 }

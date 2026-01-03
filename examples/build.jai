@@ -5,9 +5,9 @@
 
     make_directory_if_it_does_not_exist("bin");
 
-    compile_example("basic");
-    compile_example("instanced_drawing");
-    compile_example("window");
+    compile_example("01_memory");
+    compile_example("02_compute");
+    compile_example("03_hello_square");
     compile_example("textures");
 
     copy_module_libraries_to_target("bin");

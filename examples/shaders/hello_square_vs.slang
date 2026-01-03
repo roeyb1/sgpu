@@ -8,7 +8,6 @@ struct VS_Output {
 struct Vertex_Buffers {
     float2* positions;
     float3* colors;
-    //float2* uvs;
 };
 
 [vk::push_constant]
