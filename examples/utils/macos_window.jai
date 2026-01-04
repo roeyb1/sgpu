@@ -66,3 +66,4 @@ ns_view_set_layer :: (self: *NSView, layer: *CALayer) {
 #import "Objective_C";
 #import "Objective_C/AppKit";
 #import "Metal";
+#import "Window_Creation"(DEFAULT_MSAA = DEFAULT_MSAA);
