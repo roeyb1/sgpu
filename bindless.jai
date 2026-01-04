@@ -164,9 +164,9 @@ create_descriptor_set_layout :: () -> Gpu_Result {
     properties.pNext = *descriptor_properties;
     vkGetPhysicalDeviceProperties2(vk_physical_device, *properties);
 
-    num_sampled_images = min(properties.properties.limits.maxDescriptorSetSampledImages, MAX_IMAGES);
-    num_storage_images = min(properties.properties.limits.maxDescriptorSetStorageImages, MAX_IMAGES);
-    num_samplers = min(properties.properties.limits.maxDescriptorSetSamplers, MAX_SAMPLERS);
+    num_sampled_images = min(properties.properties.limits.maxPerStageDescriptorSampledImages, MAX_IMAGES);
+    num_storage_images = min(properties.properties.limits.maxPerStageDescriptorStorageImages, MAX_IMAGES);
+    num_samplers = min(properties.properties.limits.maxPerStageDescriptorSamplers, MAX_SAMPLERS);
 
     bindings := VkDescriptorSetLayoutBinding.[
         .{
