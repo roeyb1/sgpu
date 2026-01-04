@@ -814,6 +814,30 @@ create_device :: () -> Gpu_Result {
 
             if !limits_satisfied then continue;
 
+            supports_required_extensions: bool = true;
+            {
+                available_extensions: [..] VkExtensionProperties;
+                extension_count: u32;
+                vkEnumerateDeviceExtensionProperties(it, null, *extension_count, null);
+                array_resize(*available_extensions, extension_count);
+                vkEnumerateDeviceExtensionProperties(it, null, *extension_count, available_extensions.data);
+
+                for required : required_extensions {
+                    required_name := to_string(required);
+                    found: bool = false;
+                    for available : available_extensions {
+                        if to_string(available.extensionName) == required_name {
+                            found = true; break;
+                        }
+                    }
+                    if !found {
+                        supports_required_extensions = false;
+                        break;
+                    }
+                }
+            }
+            if !supports_required_extensions then continue;
+
             if device_properties.properties.deviceType == .DISCRETE_GPU {
                 device_scores[it_index] += 1000;
             } else if device_properties.properties.deviceType == .VIRTUAL_GPU {
@@ -837,11 +861,7 @@ create_device :: () -> Gpu_Result {
             return .FATAL_NO_SUITABLE_DEVICE_FOUND;
         }
 
-        #if OS == .MACOS {
-            vk_physical_device = device_handles[0]; // @TODO: hardcoded first device (Macbook M1 PRO)
-        } else {
-            vk_physical_device = device_handles[best_device_index];
-        }
+        vk_physical_device = device_handles[best_device_index];
 
         vkGetPhysicalDeviceProperties2(vk_physical_device, *vk_physical_device_properties);
     }
