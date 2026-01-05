@@ -692,7 +692,10 @@ create_instance :: () -> Gpu_Result {
 
     // find extensions
     enabled_extensions: [..] *u8;
-    array_add(*enabled_extensions, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+    #if OS == .MACOS {
+        // Portability enumeration is required for MoltenVK.
+        array_add(*enabled_extensions, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+    }
 
     #if VALIDATION {
         array_add(*enabled_extensions, VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
@@ -753,7 +756,9 @@ create_instance :: () -> Gpu_Result {
         create_info.pNext = *debug_messenger_create_info;
     }
 
-    create_info.flags |= .VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+    #if OS == .MACOS {
+        create_info.flags |= .VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+    }
 
     result = vkCreateInstance(*create_info, null, *vk_instance);
     if result != .SUCCESS {
