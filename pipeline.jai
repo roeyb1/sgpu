@@ -205,7 +205,7 @@ create_graphics_pipeline :: (shader_stages: [] VkPipelineShaderStageCreateInfo, 
     };
 
     dynamic_states := VkDynamicState.[
-        .VIEWPORT, .SCISSOR, .DEPTH_BIAS, .DEPTH_TEST_ENABLE, .DEPTH_WRITE_ENABLE, .DEPTH_COMPARE_OP,
+        .VIEWPORT, .SCISSOR, .DEPTH_BIAS, .DEPTH_BIAS_ENABLE, .DEPTH_TEST_ENABLE, .DEPTH_WRITE_ENABLE, .DEPTH_COMPARE_OP,
         // Fill some more space which can be filled by optional dynamic state:
         .MAX_ENUM, .MAX_ENUM, .MAX_ENUM, .MAX_ENUM, .MAX_ENUM, .MAX_ENUM,
     ];

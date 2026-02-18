@@ -243,13 +243,17 @@ gpu_set_depth_stencil_state :: (cmd: Gpu_Command_Buffer, desc: Gpu_Depth_Stencil
     if desc.depth_test != .NEVER {
         vkCmdSetDepthTestEnable(vk_cmd_buff, VK_TRUE);
         vkCmdSetDepthCompareOp(vk_cmd_buff, desc.depth_test.(VkCompareOp));
+
+		if desc.depth_bas != 0 || desc.depth_bias_slope_factor != 0 {
+			vkCmdSetDepthBiasEnable(vk_cmd_buff, VK_TRUE); 
+			vkCmdSetDepthBias(vk_cmd_buff, desc.depth_bias, desc.depth_bias_clamp, desc.depth_bias_slope_factor);
+		}
     } else {
         vkCmdSetDepthTestEnable(vk_cmd_buff, VK_FALSE);
     }
 
     if desc.depth_mode & .WRITE != 0 {
         vkCmdSetDepthWriteEnable(vk_cmd_buff, VK_TRUE);
-        vkCmdSetDepthBias(vk_cmd_buff, desc.depth_bias, desc.depth_bias_clamp, desc.depth_bias_slope_factor);
     } else {
         vkCmdSetDepthWriteEnable(vk_cmd_buff, VK_FALSE);
     }

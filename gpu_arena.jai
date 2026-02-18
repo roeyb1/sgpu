@@ -30,7 +30,7 @@ gpu_arena_array_alloc :: (using arena: *Gpu_Arena, $type: Type, count: s64, min_
 gpu_arena_alloc :: (using arena: *Gpu_Arena, alloc_size: s64, min_alignment: s64 = 16) -> *void, Gpu_Ptr {
     alignment := calculate_alignment(min_alignment);
     aligned_size := align_forward(alloc_size, alignment);
-    if head + aligned_size >= size {
+    if head + aligned_size > size {
         return null, 0;
     }
 
