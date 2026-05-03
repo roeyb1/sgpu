@@ -1,4 +1,6 @@
 main :: () {
+    defer assert_no_memory_leaks();
+
     result := gpu_init();
     assert(result == .SUCCESS);
     defer gpu_shutdown();
@@ -36,6 +38,8 @@ main :: () {
 
     graphics_pipeline := gpu_create_graphics_pipeline(vertex_spv, pixel_spv, raster_desc);
     defer gpu_free_pipeline(graphics_pipeline);
+    array_free(vertex_spv);
+    array_free(pixel_spv);
 
     Vertex2D :: struct {
         x: float;
@@ -118,8 +122,17 @@ main :: () {
     gpu_wait_idle();
 }
 
+assert_no_memory_leaks :: () {
+    leak_count := make_leak_report().sorted_summaries.count;
+    if (leak_count > 0) {
+        log("\n **** Leak Report: ****\n");
+        report_memory_leaks();
+        debug_break();
+    }
+}
+
 #import,file "../module.jai"(VALIDATION = true);
-#import "Basic";
+#import "Basic"()(MEMORY_DEBUGGER = true);
 #import "Input";
 
 #load "utils/window.jai";

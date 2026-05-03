@@ -79,6 +79,8 @@ gpu_free :: (texture_handle: Gpu_Texture) {
     for texture.views {
         cleanup_texture_view(it);
     }
+    // ensure we don't leak the resizable array's memory
+    array_free(texture.views);
 
     if texture.allocation {
         vmaDestroyImage(vma, texture.vk_image, texture.allocation);
