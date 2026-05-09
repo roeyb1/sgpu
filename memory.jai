@@ -4,6 +4,10 @@ Memory_Type :: enum {
     DEFAULT;
     GPU;
     READBACK;
+
+    // Clearer names below, the above are preserved for backwards compat
+    CPU_TO_GPU :: DEFAULT;
+    GPU_TO_CPU :: READBACK;
 }
 
 gpu_malloc :: ($type: Type, memory_type: Memory_Type = .DEFAULT) -> (mapped: *type, gpu: Gpu_Ptr) {

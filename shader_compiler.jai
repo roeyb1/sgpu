@@ -39,9 +39,35 @@ compile_shader :: (shader_path: string, output_directory: string = "", debug_sym
     });
 
     if debug_symbols {
+        {
+            // Slang’s SPIR-V backend supports generating debug information using the NonSemantic Shader DebugInfo
+            // Instructions. To enable debugging information when targeting SPIR-V, specify the -emit-spirv-directly
+            // and the -g2 argument when using slangc tool, or set EmitSpirvDirectly to 1 and DebugInformation to
+            // SLANG_DEBUG_INFO_LEVEL_STANDARD when using the API. Debugging support has been tested with RenderDoc.
+            // https://shader-slang.org/slang/user-guide/compiling.html#debugging
+
+            array_add(*options, .{
+                slang.CompilerOptionName.EmitSpirvDirectly, .{
+                    // intValue0 specifies a bool value for the setting.
+                    slang.CompilerOptionValueKind.Int, 1, 0, null, null
+                }
+            });
+
+            array_add(*options, .{
+                slang.CompilerOptionName.DebugInformation, .{
+                    // intValue0 a value defined in the SlangDebugInfoFormat enum.
+                    // Value of 2 indicates SLANG_DEBUG_INFO_FORMAT_PDB (program database)
+                    // https://github.com/shader-slang/slang/blob/63207ece82420eeb0f9a606b0739b7d8534a6662/include/slang.h#L906
+                    slang.CompilerOptionValueKind.Int, 2, 0, null, null
+                }
+            });
+        }
+
         array_add(*options, .{
-            slang.CompilerOptionName.DebugInformation, .{
-                slang.CompilerOptionValueKind.Int, 2, 0, null, null
+            slang.CompilerOptionName.Optimization, .{
+                // Value 0 here indicates "Don't optimize at all."
+                // https://github.com/shader-slang/slang/blob/63207ece82420eeb0f9a606b0739b7d8534a6662/include/slang.h#L919C52-L919C74
+                slang.CompilerOptionValueKind.Int, 0, 0, null, null
             }
         });
     }
