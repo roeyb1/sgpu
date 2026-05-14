@@ -323,9 +323,19 @@ create_surface :: () {
         }
     } else #if OS == .MACOS {
         assert(native_window_type == .COCOA);
-        ns_window := cast(*NSWindow) native_window_handle;
 
-        metal_layer := ns_window_get_metal_layer(ns_window);
+        // HACK 2026/05 reshen: I use SDL3 for window creation, and while you can get at the *NSWindow via SDL_GetProperty, it would
+        // cause an access exception on use. I suspect that it needs the equivalent of the C++ __bridge keyword to work properly but
+        // don't know how to accomplish that in jai. Instead, it's pretty easy to create/access the *CAMetalLayer using 
+        // SDL_Metal_CreateView and SDL_Metal_GetLayer, and passing the subsequent result into native_window_handle, which is what I
+        // do instead.
+        //
+        // Original code:
+        //   ns_window := cast(*NSWindow) native_window_handle;
+        //   metal_layer := ns_window_get_metal_layer(ns_window);
+        //
+        // My hack:
+        metal_layer := cast(*CAMetalLayer) native_window_handle;
         assert(metal_layer != null);
 
         create_info := VkMetalSurfaceCreateInfoEXT.{
