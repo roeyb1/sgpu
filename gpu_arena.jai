@@ -31,6 +31,7 @@ gpu_arena_alloc :: (using arena: *Gpu_Arena, alloc_size: s64, min_alignment: s64
     alignment := calculate_alignment(min_alignment);
     aligned_size := align_forward(alloc_size, alignment);
     if head + aligned_size > size {
+        assert(false, "Unable to allocate from GPU, arena full?");
         return null, 0;
     }
 
