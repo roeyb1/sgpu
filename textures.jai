@@ -142,7 +142,7 @@ gpu_copy_from_texture :: (cmd: Gpu_Command_Buffer, dest_buffer: Gpu_Ptr, src_tex
     return .SUCCESS;
 }
 
-gpu_texture_view :: (texture_handle: Gpu_Texture, desc: Gpu_View_Desc = .{}) -> Gpu_Texture_View {
+gpu_texture_view :: (texture_handle: Gpu_Texture, desc: Gpu_View_Desc = .{}, label: string = "") -> Gpu_Texture_View {
     texture := pool_get(live_textures, texture_handle);
     if !texture then return 0;
 
@@ -165,6 +165,8 @@ gpu_texture_view :: (texture_handle: Gpu_Texture, desc: Gpu_View_Desc = .{}) -> 
     vk_view: VkImageView;
     vk_result := vkCreateImageView(vk_device, *create_info, null, *vk_view);
     assert_vk_result(vk_result);
+
+    #if DEBUG_MARKERS then set_object_debug_name(.IMAGE_VIEW, cast(u64) vk_view, label);
 
     handle := pool_add(*live_views, .{desc, texture_handle, vk_view});
 
