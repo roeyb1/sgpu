@@ -1129,6 +1129,13 @@ create_device :: () -> Gpu_Result {
             chain = *shader_float_atomics;
         }
 
+        // Support fragment 'discard' keyword
+        demote_to_helper := VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT.{
+            pNext = chain,
+            shaderDemoteToHelperInvocation = VK_TRUE,
+        };
+        chain = *demote_to_helper;
+
         vk12_features := VkPhysicalDeviceVulkan12Features.{
             pNext = chain,
             bufferDeviceAddress = VK_TRUE,
