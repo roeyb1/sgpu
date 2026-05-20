@@ -39,6 +39,7 @@ gpu_init_swapchain :: (native_window: u64, window_type: Native_Window_Type, pref
     }
 
     gpu_frame_timeline = gpu_create_semaphore(0);
+    assert(gpu_frame_timeline != 0);
 }
 
 gpu_swapchain_resize :: () {
