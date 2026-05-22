@@ -1,6 +1,6 @@
 #scope_export
 
-compile_shader :: (shader_path: string, output_directory: string = "", debug_symbols: bool = false) -> bool, [] u8 {
+compile_shader :: (shader_path: string, entry_point_name: string, output_directory: string = "", debug_symbols: bool = false) -> bool, [] u8 {
     if !global_session then create_session();
 
     auto_release_temp();
@@ -108,7 +108,8 @@ compile_shader :: (shader_path: string, output_directory: string = "", debug_sym
     entry_points.allocator = temp;
     {
         main := array_add(*entry_points);
-        slang.IModule_findEntryPointByName(slang_module, "main", main);
+        result := slang.IModule_findEntryPointByName(slang_module, temp_c_string(entry_point_name), main);
+        assert(slang.SLANG_SUCCEEDED(result), "Unable to find shader entry point named % in shader %", entry_point_name, shader_path);
     }
 
     components: [..] *slang.IComponentType;
