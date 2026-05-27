@@ -79,13 +79,11 @@ VK_API_VERSION_MINOR   :: (version: u32) -> u32 { return (version >> 12) & 0x3ff
 VK_API_VERSION_PATCH   :: (version: u32) -> u32 { return version & 0xfff; }
 
 #if OS == .WINDOWS {
+    #import "Windows";
     #load "generated_windows.jai";
-    #load "windows_extras.jai";
+    #load "generated_funcs_windows.jai";
 
-    vkCreateWin32SurfaceKHR :: (instance: VkInstance, pCreateInfo: *VkWin32SurfaceCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSurface: *VkSurfaceKHR) -> VkResult #foreign libvulkan;
-    vkGetPhysicalDeviceWin32PresentationSupportKHR :: (physicalDevice: VkPhysicalDevice, queueFamilyIndex: u32) -> VkBool32 #foreign libvulkan;
-
-#scope_module // -------------------------------------------------------------------------------------------- { MODULE }
+#scope_export // -------------------------------------------------------------------------------------------- { MODULE }
 
     #if USE_LOCAL_VULKAN_DYNAMIC_LIB {
         libvulkan :: #library "libs/win/vulkan-1";
@@ -104,7 +102,12 @@ VK_API_VERSION_PATCH   :: (version: u32) -> u32 { return version & 0xfff; }
     }
 } else #if OS == .LINUX {
     #load "generated_linux.jai";
-    #load "linux_extras.jai";
+    #load "generated_funcs_linux.jai";
+    #import "X11";
+
+    xcb_connection_t :: struct {};
+    xcb_window_t :: u32;
+    xcb_visualid_t :: u32;
 
     #if MEMORY_ALLOCATOR_DEBUG {
         vkmemalloc :: #library,no_dll "linux/VkMemAlloc_DEBUG";
@@ -122,7 +125,7 @@ VK_API_VERSION_PATCH   :: (version: u32) -> u32 { return version & 0xfff; }
 
 } else #if OS == .MACOS {
     #load "generated_macos.jai";
-    #load "macos_extras.jai";
+    #load "generated_funcs_macos.jai";
 
     #if MEMORY_ALLOCATOR_DEBUG {
         vkmemalloc :: #library,no_dll "mac/VkMemAlloc_DEBUG";
@@ -143,3 +146,6 @@ VK_API_VERSION_PATCH   :: (version: u32) -> u32 { return version & 0xfff; }
 #scope_module // -------------------------------------------------------------------------------------------- { MODULE }
 
 size_t  :: u64;
+
+// Only function loaded directly from libvulkan — everything else via load_*_proc_addresses.
+vkGetInstanceProcAddr :: (instance: VkInstance, pName: *u8) -> PFN_vkVoidFunction #foreign libvulkan;

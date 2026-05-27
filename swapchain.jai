@@ -15,12 +15,28 @@ Present_Mode :: enum {
     FIFO_RELAXED :: 3;
 }
 
+// General init for most cases. Shall we split it to more specific types (Window/HWND/NSWindow)? 
 gpu_init_swapchain :: (native_window: u64, window_type: Native_Window_Type, preferred_present_modes: [] Present_Mode = .[], preferred_formats: [] Format = .[]) {
+    assert(window_type != .WAYLAND, "please use gpu_init_swapchain with display+surface arguments are for wayland compositor");
+    native_window_handle = native_window;
+    _gpu_init_swapchain(window_type, preferred_present_modes, preferred_formats);
+}
+
+// Wayland init 
+gpu_init_swapchain :: (display: *void, surface: *void, window_type: Native_Window_Type, preferred_present_modes: [] Present_Mode = .[], preferred_formats: [] Format = .[]) {
+    assert(window_type == .WAYLAND, "gpu_init_swapchain with display+surface arguments are only for wayland compositor. Use general native_window variation for other window types");
+
+    native_display = display;
+    native_surface = surface;
+    
+    _gpu_init_swapchain(window_type, preferred_present_modes, preferred_formats); 
+}
+
+_gpu_init_swapchain :: (window_type: Native_Window_Type, preferred_present_modes: [] Present_Mode = .[], preferred_formats: [] Format = .[]) {
     auto_release_temp();
     push_allocator(temp);
 
-    native_window_handle = native_window;
-    native_window_type = window_type;
+        native_window_type = window_type;
     recreate_surface();
 
     swapchain_present_mode = select_present_mode(preferred_present_modes);
@@ -64,6 +80,10 @@ gpu_destroy_swapchain :: () {
 
     vkDestroySwapchainKHR(vk_device, vk_swapchain, null);
     destroy_surface();
+
+    array_free(swapchain_images);
+    array_free(swapchain_textures);
+    array_free(swapchain_views);
 }
 
 gpu_swapchain_acquire :: () -> Gpu_Result, Gpu_Texture_View {
@@ -221,6 +241,9 @@ recreate_swapchain :: () {
 
     surface_extent = surface_capabilities.currentExtent;
 
+    surface_extent.width  = clamp(surface_extent.width,  surface_capabilities.minImageExtent.width,  surface_capabilities.maxImageExtent.width);
+    surface_extent.height = clamp(surface_extent.height, surface_capabilities.minImageExtent.height, surface_capabilities.maxImageExtent.height);
+
     old_swapchain := vk_swapchain;
 
     cleanup_swapchain_image_views();
@@ -244,7 +267,7 @@ recreate_swapchain :: () {
     };
 
     vk_result = vkCreateSwapchainKHR(vk_device, *create_info, null, *vk_swapchain);
-    assert_vk_result(vk_result);
+    assert_vk_result(vk_result, "Unable to create swapchain");
 
     if old_swapchain != VK_NULL_HANDLE {
         vkDestroySwapchainKHR(vk_device, old_swapchain, null);
@@ -294,30 +317,36 @@ recreate_swapchain :: () {
 }
 
 create_surface :: () {
-    #if OS == .WINDOWS {
+        #if OS == .WINDOWS {
         assert(native_window_type == .WIN32);
 
         create_info := VkWin32SurfaceCreateInfoKHR.{
             hinstance = GetModuleHandleA(null),
             hwnd = native_window_handle.(HWND),
         };
-        if !vkCreateWin32SurfaceKHR {
-            vkCreateWin32SurfaceKHR = cast(PFN_vkCreateWin32SurfaceKHR) vkGetInstanceProcAddr(vk_instance, "vkCreateWin32SurfaceKHR");
-        }
         vk_result := vkCreateWin32SurfaceKHR(vk_instance, *create_info, null, *vk_surface);
         assert_vk_result(vk_result);
     } else #if OS == .LINUX {
         if native_window_type == .WAYLAND {
-            assert(false, "todo");
+
+            assert(native_display != null, "Wayland display is null");
+            assert(native_surface != null, "Wayland surface is null");
+            
+            surface_info :=  VkWaylandSurfaceCreateInfoKHR.{};
+            surface_info.display = native_display;
+            surface_info.surface = native_surface;
+
+            vk_result := vkCreateWaylandSurfaceKHR(vk_instance, *surface_info, null, *vk_surface);
+            assert_vk_result(vk_result);
+
+            
+        
         } else if native_window_type == .X11 {
             create_info := VkXlibSurfaceCreateInfoKHR.{
-                display = XOpenDisplay(null),
+                dpy = XOpenDisplay(null),
                 window = native_window_handle.(Window)
             };
 
-            if !vkCreateXlibSurfaceKHR {
-                vkCreateXlibSurfaceKHR = cast(PFN_vkCreateXlibSurfaceKHR) vkGetInstanceProcAddr(vk_instance, "vkCreateXlibSurfaceKHR");
-            }
             vk_result := vkCreateXlibSurfaceKHR(vk_instance, *create_info, null, *vk_surface);
             assert_vk_result(vk_result);
         }
@@ -400,6 +429,8 @@ transition_swapchain_to_general :: (cmd_buff: Gpu_Command_Buffer) {
     vkCmdPipelineBarrier2(vk_cmd_buff, *dep_info);
 }
 
+native_display: *void;  // wayland display and surface
+native_surface: *void;
 
 native_window_handle: u64;
 native_window_type: Native_Window_Type;
@@ -432,11 +463,8 @@ acquire_semaphore_index: u64;
 
 #if OS == .WINDOWS {
     #import "Windows";
-
-    vkCreateWin32SurfaceKHR: PFN_vkCreateWin32SurfaceKHR;
 } else #if OS == .LINUX {
     #import "X11";
-    vkCreateXlibSurfaceKHR: PFN_vkCreateXlibSurfaceKHR;
 } else #if OS == .MACOS {
     #import "Objective_C";
     #import "Objective_C/AppKit";

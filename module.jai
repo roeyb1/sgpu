@@ -11,6 +11,10 @@
     DEBUG_MARKERS := true
 );
 
+// Bootstrap: the only function loaded directly from libvulkan.
+// All other Vulkan functions are loaded at runtime via load_*_proc_addresses().
+vkGetInstanceProcAddr :: (instance: VkInstance, pName: *u8) -> PFN_vkVoidFunction #foreign libvulkan;
+
 Gpu_Pipeline :: #type,distinct s64;
 
 Gpu_Texture :: #type,distinct s64;
@@ -553,6 +557,8 @@ gpu_init :: (optional_features: Gpu_Optional_Features = .DESCRIPTOR_BUFFER) -> G
         gpu_capture_init();
     }
 
+    load_global_proc_addresses();
+
     result := create_instance();
     return_if_error(result);
     result = create_device();
@@ -648,8 +654,8 @@ gpu_get_queue :: (queue_type: Gpu_Queue_Type, queue_index: u32) -> Gpu_Queue {
 
 #scope_module
 
-assert_vk_result :: (result: VkResult) {
-    assert(result == VkResult.SUCCESS);
+assert_vk_result :: (result: VkResult, info: string = "") {
+    assert(result == VkResult.SUCCESS, info);
 }
 
 // #todo: all these return_if_errors need to be cleaned up.
@@ -804,6 +810,8 @@ create_instance :: () -> Gpu_Result {
             vkCreateDebugReportCallbackEXT(vk_instance, *debug_callback_create_info, null, *vk_debug_callback_handle);
         }
     }
+
+    load_instance_proc_addresses(vk_instance);
 
     return .SUCCESS;
 }
@@ -1240,43 +1248,14 @@ create_device :: () -> Gpu_Result {
         return_if_error(result);
     }
 
-    // load extension function pointers
-    {
-        loaded_all_pfns: bool = true;
-        // required pfns:
-        #insert #run generate_get_device_proc_addr("vkCmdBeginRenderingKHR");
-        #insert #run generate_get_device_proc_addr("vkCmdEndRenderingKHR");
-        if !loaded_all_pfns then return .FATAL_MISSING_REQUIRED_FEATURE;
+    // Load all device function pointers at once (JR_Backup pattern).
+    load_device_proc_addresses(vk_device);
 
-        // optional extension pfns:
-        if is_optional_ext_supported(.DESCRIPTOR_BUFFER) {
-            #insert #run generate_get_device_proc_addr("vkGetDescriptorSetLayoutSizeEXT");
-            #insert #run generate_get_device_proc_addr("vkGetDescriptorSetLayoutBindingOffsetEXT");
-            #insert #run generate_get_device_proc_addr("vkGetDescriptorSetLayoutBindingOffsetEXT");
-            #insert #run generate_get_device_proc_addr("vkGetDescriptorEXT");
-            #insert #run generate_get_device_proc_addr("vkCmdBindDescriptorBuffersEXT");
-            #insert #run generate_get_device_proc_addr("vkCmdSetDescriptorBufferOffsetsEXT");
-        }
-        if is_optional_ext_supported(.MESH_SHADERS) {
-            #insert #run generate_get_device_proc_addr("vkCmdDrawMeshTasksEXT");
-        }
-        #if DEBUG_MARKERS {
-            #insert #run generate_get_device_proc_addr("vkSetDebugUtilsObjectNameEXT");
-            #insert #run generate_get_device_proc_addr("vkCmdBeginDebugUtilsLabelEXT");
-            #insert #run generate_get_device_proc_addr("vkCmdEndDebugUtilsLabelEXT");
-        }
+    if !vkCmdBeginRenderingKHR || !vkCmdEndRenderingKHR {
+        return .FATAL_MISSING_REQUIRED_FEATURE;
     }
 
     return .SUCCESS;
-}
-
-generate_get_device_proc_addr :: (proc_name: string) ->string #compile_time {
-    INSERT_STRING :: #string DONE
-        %1 = cast(PFN_%1) vkGetDeviceProcAddr(vk_device, "%1");
-        loaded_all_pfns &= %1 != null;
-    DONE;
-
-    return tprint(INSERT_STRING, proc_name);
 }
 
 // we remember the allocator passed into gpu_init and ensure all cpu allocations occur using that allocator.
@@ -1358,16 +1337,8 @@ MAX_TRANSFER_QUEUES :: 2;
 // 16 seems like a reasonable cap on this. Prevents some unnecessary heap allocations
 MAX_ATTACHMENTS :: 16;
 
-vkCmdBeginRenderingKHR : PFN_vkCmdBeginRenderingKHR;
-vkCmdEndRenderingKHR : PFN_vkCmdEndRenderingKHR;
-
-vkCmdDrawMeshTasksEXT: PFN_vkCmdDrawMeshTasksEXT;
 
 #if DEBUG_MARKERS {
-    vkSetDebugUtilsObjectNameEXT: PFN_vkSetDebugUtilsObjectNameEXT;
-    vkCmdBeginDebugUtilsLabelEXT: PFN_vkCmdBeginDebugUtilsLabelEXT;
-    vkCmdEndDebugUtilsLabelEXT:   PFN_vkCmdEndDebugUtilsLabelEXT;
-
     set_object_debug_name :: (object_type: VkObjectType, handle: u64, name: string) {
         if !name then return;
         auto_release_temp();

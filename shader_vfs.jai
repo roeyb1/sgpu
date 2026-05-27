@@ -41,6 +41,8 @@ cleanup_shader_vfs :: (vfs: *Shader_VFS) {
     free(vfs);
 }
 
+#scope_file
+
 // ---- Shader_File_Blob (implements ISlangBlob) ----
 
 // Shader_File_Blob layout:

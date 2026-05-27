@@ -151,11 +151,7 @@ destroy_descriptors :: () {
 
 bindless_set_layout: VkDescriptorSetLayout;
 
-vkGetDescriptorSetLayoutSizeEXT: PFN_vkGetDescriptorSetLayoutSizeEXT;
-vkGetDescriptorSetLayoutBindingOffsetEXT: PFN_vkGetDescriptorSetLayoutBindingOffsetEXT;
-vkGetDescriptorEXT: PFN_vkGetDescriptorEXT;
-vkCmdBindDescriptorBuffersEXT: PFN_vkCmdBindDescriptorBuffersEXT;
-vkCmdSetDescriptorBufferOffsetsEXT: PFN_vkCmdSetDescriptorBufferOffsetsEXT;
+// Descriptor buffer PFNs now loaded globally by load_device_proc_addresses().
 
 #scope_file
 
