@@ -12,16 +12,10 @@ VkXlibSurfaceCreateInfoKHR :: struct {
 
 PFN_vkCreateXlibSurfaceKHR :: #type (instance: VkInstance, pCreateInfo: *VkXlibSurfaceCreateInfoKHR, pAllocator: *VkAllocationCallbacks, surface: *VkSurfaceKHR) -> VkResult #c_call;
 
-VK_KHR_wayland_surface :: 1;
-VK_KHR_WAYLAND_SURFACE_SPEC_VERSION :: 6;
-VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME :: "VK_KHR_wayland_surface";
-
-VkWaylandSurfaceCreateFlagsKHR :: VkFlags;
-
 VkWaylandSurfaceCreateInfoKHR :: struct {
     sType:   VkStructureType = .VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR;
     pNext:   *void;
-    flags:   VkWaylandSurfaceCreateFlagsKHR;
+    flags:   VkFlags;
     display: *void;
     surface: *void;
 }
