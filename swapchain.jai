@@ -16,13 +16,13 @@ Present_Mode :: enum {
 }
 
 gpu_init_swapchain :: (native_window: u64, window_type: Native_Window_Type, preferred_present_modes: [] Present_Mode = .[], preferred_formats: [] Format = .[]) {
-    assert(window_type != .WAYLAND, "please use gpu_init_swapchain with display+surface arguments are for wayland compositor");
+    assert(window_type != .WAYLAND, "please use gpu_init_swapchain with display+surface for wayland windows");
     native_window_handle = native_window;
     _gpu_init_swapchain(window_type, preferred_present_modes, preferred_formats);
 }
 
 gpu_init_swapchain :: (display: *void, surface: *void, window_type: Native_Window_Type, preferred_present_modes: [] Present_Mode = .[], preferred_formats: [] Format = .[]) {
-    assert(window_type == .WAYLAND, "gpu_init_swapchain with display+surface arguments are only for wayland compositor. Use general native_window variation for other window types");
+    assert(window_type == .WAYLAND, "please use gpu_init_swapchain with native_window handle for non-wayland windows");
 
     native_display = display;
     native_surface = surface;
