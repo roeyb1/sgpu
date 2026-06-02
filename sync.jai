@@ -32,6 +32,7 @@ gpu_create_semaphore :: (initial: u64) -> Gpu_Semaphore {
 
 gpu_wait_semaphore :: (timeline: Gpu_Timeline_Pair) {
     semaphore := pool_get(live_semaphores, timeline.semaphore);
+    assert(semaphore != null);
 
     wait_info := VkSemaphoreWaitInfo.{
         semaphoreCount = 1,
@@ -42,11 +43,14 @@ gpu_wait_semaphore :: (timeline: Gpu_Timeline_Pair) {
     assert_vk_result(vk_result);
 }
 
-gpu_destroy_semaphore :: (semaphore_handle: Gpu_Semaphore) {
+// returns true if semaphore was found/destroyed, false otherwise
+gpu_destroy_semaphore :: (semaphore_handle: Gpu_Semaphore) -> bool {
     removed, semaphore := pool_remove(*live_semaphores, semaphore_handle);
     if removed {
         vkDestroySemaphore(vk_device, semaphore.vk_semaphore, null);
     }
+
+    return removed;
 }
 
 #scope_module

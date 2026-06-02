@@ -53,6 +53,7 @@ _gpu_init_swapchain :: (window_type: Native_Window_Type, preferred_present_modes
     }
 
     gpu_frame_timeline = gpu_create_semaphore(0);
+    assert(gpu_frame_timeline != 0);
 }
 
 gpu_swapchain_resize :: () {
@@ -67,17 +68,28 @@ gpu_get_surface_extent :: () -> u32, u32 {
 gpu_destroy_swapchain :: () {
     cleanup_swapchain_image_views();
 
-    gpu_destroy_semaphore(gpu_frame_timeline);
+    ok := gpu_destroy_semaphore(gpu_frame_timeline);
+    debug_assert(ok, "Failed to destroy gpu_frame_timeline semaphore");
+    gpu_frame_timeline = 0;
 
     for acquire_semaphores {
         vkDestroySemaphore(vk_device, it, null);
     }
+    memset(*acquire_semaphores, 0, size_of(type_of(acquire_semaphores)));
+
     for present_semaphores {
         vkDestroySemaphore(vk_device, it, null);
     }
+    memset(*present_semaphores, 0, size_of(type_of(acquire_semaphores)));
 
     vkDestroySwapchainKHR(vk_device, vk_swapchain, null);
+    vk_swapchain = VK_NULL_HANDLE;
     destroy_surface();
+
+    // reset global counters, else a swapchain recreation (as would occur when toggling vsync), 
+    // would use stale/incorrect values on semaphore waits
+    current_swapchain_index = 0;
+    cpu_frame_timeline = 0;
 }
 
 gpu_swapchain_acquire :: () -> Gpu_Result, Gpu_Texture_View {
@@ -385,6 +397,7 @@ cleanup_swapchain_image_views :: () {
     for swapchain_textures {
         gpu_free(it);
     }
+    array_reset(*swapchain_textures);
 }
 
 

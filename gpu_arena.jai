@@ -31,6 +31,7 @@ gpu_arena_alloc :: (using arena: *Gpu_Arena, alloc_size: s64, min_alignment: s64
     alignment := calculate_alignment(min_alignment);
     aligned_size := align_forward(alloc_size, alignment);
     if head + aligned_size > size {
+        debug_assert(false, "Failed to allocate from GPU arena, you requested % bytes more than your arena's capacity (% bytes)", (head + aligned_size) - size, size);
         return null, 0;
     }
 

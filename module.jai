@@ -693,7 +693,7 @@ return_if_error :: (result: Gpu_Result) #expand {
 
 debug_assert :: (arg: bool, message := "", args: ..Any, loc := #caller_location) #no_debug #expand {
     #if DEBUG_ASSERTS {
-        assert(arg, message, args, loc);
+        assert(arg, message, ..args, loc);
     }
 }
 
