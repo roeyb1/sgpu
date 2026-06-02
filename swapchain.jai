@@ -16,10 +16,24 @@ Present_Mode :: enum {
 }
 
 gpu_init_swapchain :: (native_window: u64, window_type: Native_Window_Type, preferred_present_modes: [] Present_Mode = .[], preferred_formats: [] Format = .[]) {
+    assert(window_type != .WAYLAND, "please use gpu_init_swapchain with display+surface arguments are for wayland compositor");
+    native_window_handle = native_window;
+    _gpu_init_swapchain(window_type, preferred_present_modes, preferred_formats);
+}
+
+gpu_init_swapchain :: (display: *void, surface: *void, window_type: Native_Window_Type, preferred_present_modes: [] Present_Mode = .[], preferred_formats: [] Format = .[]) {
+    assert(window_type == .WAYLAND, "gpu_init_swapchain with display+surface arguments are only for wayland compositor. Use general native_window variation for other window types");
+
+    native_display = display;
+    native_surface = surface;
+    
+    _gpu_init_swapchain(window_type, preferred_present_modes, preferred_formats); 
+}
+
+_gpu_init_swapchain :: (window_type: Native_Window_Type, preferred_present_modes: [] Present_Mode = .[], preferred_formats: [] Format = .[]) {
     auto_release_temp();
     push_allocator(temp);
 
-    native_window_handle = native_window;
     native_window_type = window_type;
     recreate_surface();
 
@@ -220,6 +234,8 @@ recreate_swapchain :: () {
     assert_vk_result(vk_result);
 
     surface_extent = surface_capabilities.currentExtent;
+    surface_extent.width  = clamp(surface_extent.width,  surface_capabilities.minImageExtent.width,  surface_capabilities.maxImageExtent.width);
+    surface_extent.height = clamp(surface_extent.height, surface_capabilities.minImageExtent.height, surface_capabilities.maxImageExtent.height);
 
     old_swapchain := vk_swapchain;
 
@@ -308,7 +324,20 @@ create_surface :: () {
         assert_vk_result(vk_result);
     } else #if OS == .LINUX {
         if native_window_type == .WAYLAND {
-            assert(false, "todo");
+
+            assert(native_display != null, "Wayland display is null");
+            assert(native_surface != null, "Wayland surface is null");
+            
+            surface_info :=  VkWaylandSurfaceCreateInfoKHR.{};
+            surface_info.display = native_display;
+            surface_info.surface = native_surface;
+
+            if !vkCreateWaylandSurfaceKHR {
+                vkCreateWaylandSurfaceKHR = cast(PFN_vkCreateWaylandSurfaceKHR) vkGetInstanceProcAddr(vk_instance, "vkCreateWaylandSurfaceKHR");
+            }
+
+            vk_result := vkCreateWaylandSurfaceKHR(vk_instance, *surface_info, null, *vk_surface);
+            assert_vk_result(vk_result);
         } else if native_window_type == .X11 {
             create_info := VkXlibSurfaceCreateInfoKHR.{
                 display = XOpenDisplay(null),
@@ -400,6 +429,8 @@ transition_swapchain_to_general :: (cmd_buff: Gpu_Command_Buffer) {
     vkCmdPipelineBarrier2(vk_cmd_buff, *dep_info);
 }
 
+native_display: *void;
+native_surface: *void;
 
 native_window_handle: u64;
 native_window_type: Native_Window_Type;
@@ -437,6 +468,7 @@ acquire_semaphore_index: u64;
 } else #if OS == .LINUX {
     #import "X11";
     vkCreateXlibSurfaceKHR: PFN_vkCreateXlibSurfaceKHR;
+    vkCreateWaylandSurfaceKHR: PFN_vkCreateWaylandSurfaceKHR;
 } else #if OS == .MACOS {
     #import "Objective_C";
     #import "Objective_C/AppKit";
