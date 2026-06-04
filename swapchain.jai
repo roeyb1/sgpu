@@ -42,8 +42,7 @@ _gpu_init_swapchain :: (window_type: Native_Window_Type, preferred_present_modes
 
     recreate_swapchain();
 
-    semaphore_create_info := VkSemaphoreCreateInfo.{
-    };
+    semaphore_create_info := VkSemaphoreCreateInfo.{};
 
     for 0..MAX_FRAMES_IN_FLIGHT-1 {
         vk_result := vkCreateSemaphore(vk_device, *semaphore_create_info, null, *acquire_semaphores[it]);
@@ -54,6 +53,11 @@ _gpu_init_swapchain :: (window_type: Native_Window_Type, preferred_present_modes
 
     gpu_frame_timeline = gpu_create_semaphore(0);
     assert(gpu_frame_timeline != 0);
+}
+// TODO: Make the wayland native too query the window size
+gpu_swapchain_resize :: (width: u32, height: u32) {
+    surface_extent = .{width, height};
+    gpu_swapchain_resize();
 }
 
 gpu_swapchain_resize :: () {
@@ -241,13 +245,15 @@ select_present_mode :: (preferred_modes: [] Present_Mode) -> VkPresentModeKHR {
 }
 
 recreate_swapchain :: () {
-    surface_capabilities: VkSurfaceCapabilitiesKHR;
-    vk_result := vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_physical_device, vk_surface, *surface_capabilities);
-    assert_vk_result(vk_result);
 
-    surface_extent = surface_capabilities.currentExtent;
-    surface_extent.width  = clamp(surface_extent.width,  surface_capabilities.minImageExtent.width,  surface_capabilities.maxImageExtent.width);
-    surface_extent.height = clamp(surface_extent.height, surface_capabilities.minImageExtent.height, surface_capabilities.maxImageExtent.height);
+    if native_window_type != .WAYLAND { // wayland does not provide the size in currentExtent
+        surface_capabilities: VkSurfaceCapabilitiesKHR;
+        vk_result := vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_physical_device, vk_surface, *surface_capabilities);
+        assert_vk_result(vk_result);
+        surface_extent = surface_capabilities.currentExtent; 
+    }
+
+    assert(surface_extent.width > 0 || surface_extent.height > 0, "Invalid surface extent. If it happened after calling 'gpu_swapchain_resize()' - try to provide surface extent explisitly");
 
     old_swapchain := vk_swapchain;
 
@@ -271,7 +277,7 @@ recreate_swapchain :: () {
         oldSwapchain = old_swapchain,
     };
 
-    vk_result = vkCreateSwapchainKHR(vk_device, *create_info, null, *vk_swapchain);
+    vk_result := vkCreateSwapchainKHR(vk_device, *create_info, null, *vk_swapchain);
     assert_vk_result(vk_result);
 
     if old_swapchain != VK_NULL_HANDLE {
@@ -448,7 +454,7 @@ native_surface: *void;
 native_window_handle: u64;
 native_window_type: Native_Window_Type;
 vk_surface: VkSurfaceKHR;
-surface_extent: VkExtent2D;
+surface_extent: VkExtent2D = .{1, 1};
 
 swapchain_present_mode: VkPresentModeKHR;
 swapchain_format: VkSurfaceFormatKHR;
