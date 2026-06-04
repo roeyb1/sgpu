@@ -16,10 +16,24 @@ Present_Mode :: enum {
 }
 
 gpu_init_swapchain :: (native_window: u64, window_type: Native_Window_Type, preferred_present_modes: [] Present_Mode = .[], preferred_formats: [] Format = .[]) {
+    assert(window_type != .WAYLAND, "please use gpu_init_swapchain with display+surface for wayland windows");
+    native_window_handle = native_window;
+    _gpu_init_swapchain(window_type, preferred_present_modes, preferred_formats);
+}
+
+gpu_init_swapchain :: (display: *void, surface: *void, window_type: Native_Window_Type, preferred_present_modes: [] Present_Mode = .[], preferred_formats: [] Format = .[]) {
+    assert(window_type == .WAYLAND, "please use gpu_init_swapchain with native_window handle for non-wayland windows");
+
+    native_display = display;
+    native_surface = surface;
+    
+    _gpu_init_swapchain(window_type, preferred_present_modes, preferred_formats); 
+}
+
+_gpu_init_swapchain :: (window_type: Native_Window_Type, preferred_present_modes: [] Present_Mode = .[], preferred_formats: [] Format = .[]) {
     auto_release_temp();
     push_allocator(temp);
 
-    native_window_handle = native_window;
     native_window_type = window_type;
     recreate_surface();
 
@@ -28,8 +42,7 @@ gpu_init_swapchain :: (native_window: u64, window_type: Native_Window_Type, pref
 
     recreate_swapchain();
 
-    semaphore_create_info := VkSemaphoreCreateInfo.{
-    };
+    semaphore_create_info := VkSemaphoreCreateInfo.{};
 
     for 0..MAX_FRAMES_IN_FLIGHT-1 {
         vk_result := vkCreateSemaphore(vk_device, *semaphore_create_info, null, *acquire_semaphores[it]);
@@ -40,6 +53,11 @@ gpu_init_swapchain :: (native_window: u64, window_type: Native_Window_Type, pref
 
     gpu_frame_timeline = gpu_create_semaphore(0);
     assert(gpu_frame_timeline != 0);
+}
+// TODO: Make the wayland native too query the window size
+gpu_swapchain_resize :: (width: u32, height: u32) {
+    surface_extent = .{width, height};
+    gpu_swapchain_resize();
 }
 
 gpu_swapchain_resize :: () {
@@ -227,11 +245,15 @@ select_present_mode :: (preferred_modes: [] Present_Mode) -> VkPresentModeKHR {
 }
 
 recreate_swapchain :: () {
-    surface_capabilities: VkSurfaceCapabilitiesKHR;
-    vk_result := vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_physical_device, vk_surface, *surface_capabilities);
-    assert_vk_result(vk_result);
 
-    surface_extent = surface_capabilities.currentExtent;
+    if native_window_type != .WAYLAND { // wayland does not provide the size in currentExtent
+        surface_capabilities: VkSurfaceCapabilitiesKHR;
+        vk_result := vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_physical_device, vk_surface, *surface_capabilities);
+        assert_vk_result(vk_result);
+        surface_extent = surface_capabilities.currentExtent; 
+    }
+
+    assert(surface_extent.width > 0 || surface_extent.height > 0, "Invalid surface extent. If it happened after calling 'gpu_swapchain_resize()' - try to provide surface extent explisitly");
 
     old_swapchain := vk_swapchain;
 
@@ -255,7 +277,7 @@ recreate_swapchain :: () {
         oldSwapchain = old_swapchain,
     };
 
-    vk_result = vkCreateSwapchainKHR(vk_device, *create_info, null, *vk_swapchain);
+    vk_result := vkCreateSwapchainKHR(vk_device, *create_info, null, *vk_swapchain);
     assert_vk_result(vk_result);
 
     if old_swapchain != VK_NULL_HANDLE {
@@ -320,7 +342,20 @@ create_surface :: () {
         assert_vk_result(vk_result);
     } else #if OS == .LINUX {
         if native_window_type == .WAYLAND {
-            assert(false, "todo");
+
+            assert(native_display != null, "Wayland display is null");
+            assert(native_surface != null, "Wayland surface is null");
+            
+            surface_info :=  VkWaylandSurfaceCreateInfoKHR.{};
+            surface_info.display = native_display;
+            surface_info.surface = native_surface;
+
+            if !vkCreateWaylandSurfaceKHR {
+                vkCreateWaylandSurfaceKHR = cast(PFN_vkCreateWaylandSurfaceKHR) vkGetInstanceProcAddr(vk_instance, "vkCreateWaylandSurfaceKHR");
+            }
+
+            vk_result := vkCreateWaylandSurfaceKHR(vk_instance, *surface_info, null, *vk_surface);
+            assert_vk_result(vk_result);
         } else if native_window_type == .X11 {
             create_info := VkXlibSurfaceCreateInfoKHR.{
                 display = XOpenDisplay(null),
@@ -413,11 +448,13 @@ transition_swapchain_to_general :: (cmd_buff: Gpu_Command_Buffer) {
     vkCmdPipelineBarrier2(vk_cmd_buff, *dep_info);
 }
 
+native_display: *void;
+native_surface: *void;
 
 native_window_handle: u64;
 native_window_type: Native_Window_Type;
 vk_surface: VkSurfaceKHR;
-surface_extent: VkExtent2D;
+surface_extent: VkExtent2D = .{1, 1};
 
 swapchain_present_mode: VkPresentModeKHR;
 swapchain_format: VkSurfaceFormatKHR;
@@ -450,6 +487,7 @@ acquire_semaphore_index: u64;
 } else #if OS == .LINUX {
     #import "X11";
     vkCreateXlibSurfaceKHR: PFN_vkCreateXlibSurfaceKHR;
+    vkCreateWaylandSurfaceKHR: PFN_vkCreateWaylandSurfaceKHR;
 } else #if OS == .MACOS {
     #import "Objective_C";
     #import "Objective_C/AppKit";

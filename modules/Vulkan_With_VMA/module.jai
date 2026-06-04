@@ -106,6 +106,9 @@ VK_API_VERSION_PATCH   :: (version: u32) -> u32 { return version & 0xfff; }
     #load "generated_linux.jai";
     #load "linux_extras.jai";
 
+    vkCreateWaylandSurfaceKHR :: (instance: VkInstance, pCreateInfo: *VkWaylandSurfaceCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSurface: *VkSurfaceKHR) -> VkResult #foreign libvulkan;
+    vkGetPhysicalDeviceWaylandPresentationSupportKHR :: (physicalDevice: VkPhysicalDevice, queueFamilyIndex: u32, display: *void) -> VkBool32 #foreign libvulkan;
+
     #if MEMORY_ALLOCATOR_DEBUG {
         vkmemalloc :: #library,no_dll "linux/VkMemAlloc_DEBUG";
     } else {
