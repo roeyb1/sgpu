@@ -191,10 +191,6 @@ create_graphics_pipeline :: (shader_stages: [] VkPipelineShaderStageCreateInfo, 
     ];
     found, num_dynamic_states := array_find(dynamic_states, .MAX_ENUM);
 
-    dynamic_state := VkPipelineDynamicStateCreateInfo.{
-        dynamicStateCount = num_dynamic_states.(u32),
-        pDynamicStates = dynamic_states.data
-    };
     use_dynamic_blend := raster_desc.blend_state == null;
     if use_dynamic_blend {
         dynamic_states[num_dynamic_states + 0] = .COLOR_BLEND_ENABLE_EXT;
@@ -202,6 +198,11 @@ create_graphics_pipeline :: (shader_stages: [] VkPipelineShaderStageCreateInfo, 
         dynamic_states[num_dynamic_states + 2] = .COLOR_WRITE_MASK_EXT;
         num_dynamic_states += 3;
     }
+
+    dynamic_state := VkPipelineDynamicStateCreateInfo.{
+        dynamicStateCount = num_dynamic_states.(u32),
+        pDynamicStates = dynamic_states.data
+    };
     attachment_blend_states: [MAX_ATTACHMENTS] VkPipelineColorBlendAttachmentState;
     for 0..raster_desc.color_targets.count-1 {
         if use_dynamic_blend {
