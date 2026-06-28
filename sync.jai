@@ -31,8 +31,7 @@ gpu_create_semaphore :: (initial: u64) -> Gpu_Semaphore {
 }
 
 gpu_wait_semaphore :: (timeline: Gpu_Timeline_Pair) {
-    semaphore := pool_get(live_semaphores, timeline.semaphore);
-    assert(semaphore != null);
+    semaphore := get_semaphore(timeline.semaphore);
 
     wait_info := VkSemaphoreWaitInfo.{
         semaphoreCount = 1,
@@ -61,6 +60,7 @@ Semaphore :: struct {
 
 get_semaphore :: (semaphore_handle: Gpu_Semaphore) -> *Semaphore {
     semaphore := pool_get(live_semaphores, semaphore_handle);
+    assert(semaphore != null);
     return semaphore;
 }
 
