@@ -777,8 +777,8 @@ submit_command_buffer :: (using submit_info: Submit_Info) {
     all_wait_values: [..] u64;
     all_wait_semaphores: [..] VkSemaphore;
 
-    for 0..signal_semaphores.count-1 {
-        array_add(*all_signal_semaphores, signal_semaphores[it]);
+    for signal_semaphores {
+        array_add(*all_signal_semaphores, it);
         array_add(*all_signal_values, 0);
     }
     for signal_timelines {
@@ -786,8 +786,8 @@ submit_command_buffer :: (using submit_info: Submit_Info) {
         array_add(*all_signal_values, it.value);
     }
 
-    for 0..wait_semaphores.count-1 {
-        array_add(*all_wait_semaphores, wait_semaphores[it]);
+    for wait_semaphores {
+        array_add(*all_wait_semaphores, it);
         array_add(*all_wait_values, 0);
     }
     for wait_timelines {

@@ -5,7 +5,9 @@ Gpu_Timestamp :: struct {
     query_index: u32;  // index within that pool
 }
 
-gpu_init_timestamps :: () {
+gpu_init_timestamps :: (swapchain_image_count: s64) {
+    assert(timestamp_pools.count == 0 && swapchain_image_count > 0);
+    array_resize(*timestamp_pools, swapchain_image_count);
     for * timestamp_pools {
         create_info := VkQueryPoolCreateInfo.{
             queryType  = .TIMESTAMP,
@@ -21,10 +23,11 @@ gpu_destroy_timestamps :: () {
     for timestamp_pools {
         if it.vk_pool vkDestroyQueryPool(vk_device, it.vk_pool, null);
     }
+    array_reset(*timestamp_pools);
 }
 
 gpu_cmd_timestamp_write :: (cmd: Gpu_Command_Buffer, stage: Stage) -> Gpu_Timestamp {
-    pool_index := cast(u32)(cpu_frame_timeline % MAX_FRAMES_IN_FLIGHT);
+    pool_index := cast(u32)(cpu_frame_timeline % timestamp_pools.count.(u64));
     pool := *timestamp_pools[pool_index];
 
     query_index := pool.next_query;
@@ -74,10 +77,10 @@ Timestamp_Pool :: struct {
     next_query: u32;
 }
 
-timestamp_pools: [MAX_FRAMES_IN_FLIGHT] Timestamp_Pool;
+timestamp_pools: [..] Timestamp_Pool;
 
 timestamps_reset :: (cmd: Gpu_Command_Buffer) {
-    pool := *timestamp_pools[cpu_frame_timeline % MAX_FRAMES_IN_FLIGHT];
+    pool := *timestamp_pools[cpu_frame_timeline % timestamp_pools.count.(u64)];
     pool.next_query = 0;
     vkCmdResetQueryPool(get_cmd_buff(cmd), pool.vk_pool, 0, MAX_TIMESTAMP_QUERIES);
 }

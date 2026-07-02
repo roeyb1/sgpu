@@ -563,8 +563,6 @@ gpu_init :: (optional_features: Gpu_Optional_Features = .DESCRIPTOR_BUFFER) -> G
     result = create_global_pipeline_layout();
     return_if_error(result);
 
-    gpu_init_timestamps();
-
     init(*memory_mutex, "Memory Mutex");
     init(*live_pools_lock, "Live Command Pools Lock");
     init(*garbage_resources_lock, "Garbage Resources Lock");
@@ -578,7 +576,6 @@ gpu_init :: (optional_features: Gpu_Optional_Features = .DESCRIPTOR_BUFFER) -> G
 gpu_shutdown :: () {
     vkDeviceWaitIdle(vk_device);
 
-    gpu_destroy_timestamps();
     gpu_collect_garbage();
 
     for arena : cmd_pools {

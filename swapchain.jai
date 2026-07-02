@@ -15,9 +15,14 @@ Present_Mode :: enum {
     FIFO_RELAXED :: 3;
 }
 
-gpu_init_swapchain :: (native_window: u64, window_type: Native_Window_Type, preferred_present_modes: [] Present_Mode = .[], preferred_formats: [] Format = .[]) {
-    auto_release_temp();
-    push_allocator(temp);
+// What the user requested during swapchain creation
+preferred_min_image_count: u32;
+
+// min_image_count refers to the preferred swapchain image count, commonly this is 2 for double buffering or 3 for
+// triple buffering. NOTE: The actual image count used will depend on what the platform supports and which present mode
+// is selected. For more details, see https://docs.vulkan.org/samples/latest/samples/performance/swapchain_images/README.html
+gpu_init_swapchain :: (native_window: u64, window_type: Native_Window_Type, preferred_present_modes: [] Present_Mode = .[], preferred_formats: [] Format = .[], min_image_count: u32 = 3) {
+    preferred_min_image_count = min_image_count;
 
     native_window_handle = native_window;
     native_window_type = window_type;
@@ -31,12 +36,21 @@ gpu_init_swapchain :: (native_window: u64, window_type: Native_Window_Type, pref
     semaphore_create_info := VkSemaphoreCreateInfo.{
     };
 
-    for 0..MAX_FRAMES_IN_FLIGHT-1 {
-        vk_result := vkCreateSemaphore(vk_device, *semaphore_create_info, null, *acquire_semaphores[it]);
-        assert_vk_result(vk_result);
-        vk_result = vkCreateSemaphore(vk_device, *semaphore_create_info, null, *present_semaphores[it]);
+    assert(acquire_semaphores.count == 0 && swapchain_images.count > 0);
+    array_resize(*acquire_semaphores, swapchain_images.count);
+    for * acquire_semaphores {
+        vk_result := vkCreateSemaphore(vk_device, *semaphore_create_info, null, it);
         assert_vk_result(vk_result);
     }
+
+    assert(present_semaphores.count == 0 && swapchain_images.count > 0);
+    array_resize(*present_semaphores, swapchain_images.count);
+    for * present_semaphores {
+        vk_result := vkCreateSemaphore(vk_device, *semaphore_create_info, null, it);
+        assert_vk_result(vk_result);
+    }
+
+    gpu_init_timestamps(swapchain_images.count);
 
     gpu_frame_timeline = gpu_create_semaphore(0);
     assert(gpu_frame_timeline != 0);
@@ -45,6 +59,11 @@ gpu_init_swapchain :: (native_window: u64, window_type: Native_Window_Type, pref
 gpu_swapchain_resize :: () {
     vkQueueWaitIdle(get_queue(gpu_get_queue(.MAIN, 0)).vk_queue);
     recreate_swapchain();
+
+    // recreate_swapchain bypasses semaphore creation/destruction, yet it may adjust
+    // the swapchain_images count. let's make sure these sizes don't unexpectedly drift
+    debug_assert(acquire_semaphores.count == swapchain_images.count);
+    debug_assert(acquire_semaphores.count == present_semaphores.count);
 }
 
 gpu_get_surface_extent :: () -> u32, u32 {
@@ -61,28 +80,33 @@ gpu_destroy_swapchain :: () {
     for acquire_semaphores {
         vkDestroySemaphore(vk_device, it, null);
     }
-    memset(*acquire_semaphores, 0, size_of(type_of(acquire_semaphores)));
+    array_reset(*acquire_semaphores);
 
     for present_semaphores {
         vkDestroySemaphore(vk_device, it, null);
     }
-    memset(*present_semaphores, 0, size_of(type_of(acquire_semaphores)));
+    array_reset(*present_semaphores);
 
     vkDestroySwapchainKHR(vk_device, vk_swapchain, null);
     vk_swapchain = VK_NULL_HANDLE;
     destroy_surface();
 
+    gpu_destroy_timestamps();
+
     // reset global counters, else a swapchain recreation (as would occur when toggling vsync), 
     // would use stale/incorrect values on semaphore waits
     current_swapchain_index = 0;
     cpu_frame_timeline = 0;
+
+    preferred_min_image_count = 0;
 }
 
 gpu_swapchain_acquire :: () -> Gpu_Result, Gpu_Texture_View {
     wait_next_frame();
 
-    acquire_semaphore_index = (cpu_frame_timeline + 1) % MAX_FRAMES_IN_FLIGHT;
+    acquire_semaphore_index = (cpu_frame_timeline + 1) % acquire_semaphores.count.(u64);
     acquire_semaphore := acquire_semaphores[acquire_semaphore_index];
+    assert(acquire_semaphore != VK_NULL_HANDLE);
     vk_result := vkAcquireNextImageKHR(vk_device, vk_swapchain, U64_MAX, acquire_semaphore, null, *current_swapchain_index);
 
     if vk_result == .SUCCESS {
@@ -101,7 +125,7 @@ gpu_swapchain_acquire :: () -> Gpu_Result, Gpu_Texture_View {
 
         submit_command_buffer(.{
             cmd_buff = cmd_buff,
-            wait_semaphores = .[current_acquire_semaphore()],
+            wait_semaphores = .[acquire_semaphore],
         });
 
         return .SUCCESS, swapchain_views[current_swapchain_index];
@@ -114,6 +138,7 @@ gpu_swapchain_acquire :: () -> Gpu_Result, Gpu_Texture_View {
 
 gpu_present :: () {
     wait_semaphore := present_semaphores[current_swapchain_index];
+    assert(wait_semaphore != VK_NULL_HANDLE);
 
     present_info := VkPresentInfoKHR.{
         waitSemaphoreCount = 1,
@@ -237,6 +262,19 @@ recreate_swapchain :: () {
 
     cleanup_swapchain_image_views();
 
+    // ref https://docs.vulkan.org/samples/latest/samples/performance/swapchain_images/README.html
+    min_image_count: u32;
+    if swapchain_present_mode == {
+        case .FIFO_KHR; #through;
+        case .IMMEDIATE_KHR;
+            min_image_count = xx max(2, preferred_min_image_count);
+
+        case .MAILBOX_KHR;
+            min_image_count = xx max(3, preferred_min_image_count);
+    }
+
+    min_image_count = clamp(min_image_count, surface_capabilities.minImageCount, surface_capabilities.maxImageCount);
+
     create_info := VkSwapchainCreateInfoKHR.{
         surface = vk_surface,
         imageFormat = swapchain_format.format,
@@ -245,7 +283,7 @@ recreate_swapchain :: () {
         imageArrayLayers = 1,
         imageSharingMode = .EXCLUSIVE,
         imageUsage = .COLOR_ATTACHMENT_BIT | .TRANSFER_DST_BIT | .STORAGE_BIT,
-        minImageCount = 3,
+        minImageCount = min_image_count,
         queueFamilyIndexCount = 1,
         pQueueFamilyIndices = *get_queue(gpu_get_queue(.MAIN, 0)).vk_family,
         preTransform = .IDENTITY_BIT_KHR,
@@ -265,6 +303,7 @@ recreate_swapchain :: () {
     image_count: u32;
     vk_result = vkGetSwapchainImagesKHR(vk_device, vk_swapchain, *image_count, null);
     assert_vk_result(vk_result);
+    debug_assert(min_image_count == image_count);
 
     array_resize(*swapchain_images, image_count);
     array_resize(*swapchain_textures, image_count);
@@ -373,9 +412,7 @@ cleanup_swapchain_image_views :: () {
 
 
 wait_next_frame :: () {
-    if cpu_frame_timeline >= MAX_FRAMES_IN_FLIGHT {
-        gpu_wait_semaphore(.{gpu_frame_timeline, cast(u64) max(0, cpu_frame_timeline.(s64) + 1 - MAX_FRAMES_IN_FLIGHT)});
-    }
+    gpu_wait_semaphore(.{gpu_frame_timeline, cpu_frame_timeline});
 }
 
 current_present_semaphore :: () -> VkSemaphore {
@@ -424,11 +461,10 @@ swapchain_format: VkSurfaceFormatKHR;
 
 vk_swapchain: VkSwapchainKHR;
 
-// #todo: expose this to the module parameters?
-MAX_FRAMES_IN_FLIGHT :: 3;
-
-acquire_semaphores: [MAX_FRAMES_IN_FLIGHT] VkSemaphore;
-present_semaphores: [MAX_FRAMES_IN_FLIGHT] VkSemaphore;
+// These are sized according to how many swapchain images can be buffered. The actual sizes are a result of preference
+// (gpu_init_swapchain()'s min_image_count and preferred_present_modes parameters) and platform support.
+acquire_semaphores: [..] VkSemaphore;
+present_semaphores: [..] VkSemaphore;
 
 // gpu_frame_timeline represents the current frame index on the gpu
 // while cpu_frame_timeline represents the current frame index on the cpu.
@@ -459,7 +495,7 @@ acquire_semaphore_index: u64;
         is_kind_of_class :: (obj: id, class: Class) -> bool {
             sel := sel_registerName("isKindOfClass:");
             func: (id, Selector, Class) -> BOOL #c_call;
-           	func = xx objc_msgSend;
+            func = xx objc_msgSend;
             return func(obj, sel, class) == YES;
         }
 
