@@ -183,19 +183,46 @@ create_graphics_pipeline :: (shader_stages: [] VkPipelineShaderStageCreateInfo, 
         alphaToCoverageEnable = raster_desc.alpha_to_coverage.(VkBool32),
     };
 
-    assert(raster_desc.blend_state != null, "dynamic blend state is not yet implemented");
+    dynamic_states := VkDynamicState.[
+        .VIEWPORT, .SCISSOR, .DEPTH_BIAS, .DEPTH_TEST_ENABLE, .DEPTH_WRITE_ENABLE, .DEPTH_COMPARE_OP,
+        .STENCIL_TEST_ENABLE, .STENCIL_OP, .STENCIL_COMPARE_MASK, .STENCIL_WRITE_MASK, .STENCIL_REFERENCE,
+        // Fill some more space which can be filled by optional dynamic state:
+        .MAX_ENUM, .MAX_ENUM, .MAX_ENUM, .MAX_ENUM,
+    ];
+    found, num_dynamic_states := array_find(dynamic_states, .MAX_ENUM);
+
+    use_dynamic_blend := raster_desc.blend_state == null;
+    if use_dynamic_blend {
+        dynamic_states[num_dynamic_states + 0] = .COLOR_BLEND_ENABLE_EXT;
+        dynamic_states[num_dynamic_states + 1] = .COLOR_BLEND_EQUATION_EXT;
+        dynamic_states[num_dynamic_states + 2] = .COLOR_WRITE_MASK_EXT;
+        num_dynamic_states += 3;
+    }
+
+    dynamic_state := VkPipelineDynamicStateCreateInfo.{
+        dynamicStateCount = num_dynamic_states.(u32),
+        pDynamicStates = dynamic_states.data
+    };
     attachment_blend_states: [MAX_ATTACHMENTS] VkPipelineColorBlendAttachmentState;
     for 0..raster_desc.color_targets.count-1 {
-        attachment_blend_states[it] = .{
-            blendEnable = VK_TRUE,
-            srcColorBlendFactor = raster_desc.blend_state.src_color_factor.(VkBlendFactor),
-            dstColorBlendFactor = raster_desc.blend_state.dst_color_factor.(VkBlendFactor),
-            colorBlendOp = raster_desc.blend_state.color_op.(VkBlendOp),
-            srcAlphaBlendFactor = raster_desc.blend_state.src_alpha_factor.(VkBlendFactor),
-            dstAlphaBlendFactor = raster_desc.blend_state.dst_alpha_factor.(VkBlendFactor),
-            alphaBlendOp = raster_desc.blend_state.alpha_op.(VkBlendOp),
-            colorWriteMask = raster_desc.blend_state.color_write_mask.(VkColorComponentFlagBits),
-        };
+        if use_dynamic_blend {
+            // Fields are ignored by the driver when all three are dynamic,
+            // but colorWriteMask must not be zero or some drivers will reject it.
+            attachment_blend_states[it] = .{
+                colorWriteMask = .R_BIT | .G_BIT | .B_BIT | .A_BIT,
+            };
+        } else {
+            attachment_blend_states[it] = .{
+                blendEnable         = VK_TRUE,
+                srcColorBlendFactor = raster_desc.blend_state.src_color_factor.(VkBlendFactor),
+                dstColorBlendFactor = raster_desc.blend_state.dst_color_factor.(VkBlendFactor),
+                colorBlendOp        = raster_desc.blend_state.color_op.(VkBlendOp),
+                srcAlphaBlendFactor = raster_desc.blend_state.src_alpha_factor.(VkBlendFactor),
+                dstAlphaBlendFactor = raster_desc.blend_state.dst_alpha_factor.(VkBlendFactor),
+                alphaBlendOp        = raster_desc.blend_state.alpha_op.(VkBlendOp),
+                colorWriteMask      = raster_desc.blend_state.color_write_mask.(VkColorComponentFlagBits),
+            };
+        }
     }
 
     color_blend_state := VkPipelineColorBlendStateCreateInfo.{
@@ -204,25 +231,6 @@ create_graphics_pipeline :: (shader_stages: [] VkPipelineShaderStageCreateInfo, 
         attachmentCount = raster_desc.color_targets.count.(u32),
         pAttachments = attachment_blend_states.data,
     };
-
-    dynamic_states := VkDynamicState.[
-        .VIEWPORT, .SCISSOR, .DEPTH_BIAS, .DEPTH_TEST_ENABLE, .DEPTH_WRITE_ENABLE, .DEPTH_COMPARE_OP,
-        .STENCIL_TEST_ENABLE, .STENCIL_OP, .STENCIL_COMPARE_MASK, .STENCIL_WRITE_MASK, .STENCIL_REFERENCE,
-        // Fill some more space which can be filled by optional dynamic state:
-        .MAX_ENUM,
-    ];
-    found, num_dynamic_states := array_find(dynamic_states, .MAX_ENUM);
-
-    dynamic_state := VkPipelineDynamicStateCreateInfo.{
-        dynamicStateCount = num_dynamic_states.(u32),
-        pDynamicStates = dynamic_states.data
-    };
-
-    // #todo:
-    //if !raster_desc.blend_state {
-    //    dynamic_states[num_dynamic_states] = .COLOR_BLEND_ENABLE;
-    //    num_dynamic_states += 1;
-    //}
 
     // when the pipeline uses depth or stencil formats.
     depth_stencil_state := VkPipelineDepthStencilStateCreateInfo.{};

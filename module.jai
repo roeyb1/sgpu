@@ -814,7 +814,9 @@ create_device :: () -> Gpu_Result {
     required_extensions: [..] *u8;
     array_add(*required_extensions, VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
     array_add(*required_extensions, VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-    array_add(*required_extensions, "VK_KHR_synchronization2");
+    array_add(*required_extensions, VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
+    array_add(*required_extensions, VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME);
+
     // #todo: praise the unified layouts! (still not widely available).
     //array_add(*required_extensions, "VK_KHR_unified_layouts");
 
@@ -1101,6 +1103,14 @@ create_device :: () -> Gpu_Result {
         };
         chain = *synchronization2;
 
+        extended_dynamic_state3 := VkPhysicalDeviceExtendedDynamicState3FeaturesEXT.{
+            pNext = chain,
+            extendedDynamicState3ColorBlendEnable   = VK_TRUE,
+            extendedDynamicState3ColorBlendEquation = VK_TRUE,
+            extendedDynamicState3ColorWriteMask     = VK_TRUE,
+        };
+        chain = *extended_dynamic_state3;
+
         if is_optional_ext_supported(.MESH_SHADERS) {
             mesh_shaders := VkPhysicalDeviceMeshShaderFeaturesEXT.{
                 pNext = chain,
@@ -1246,6 +1256,9 @@ create_device :: () -> Gpu_Result {
         // required pfns:
         #insert #run generate_get_device_proc_addr("vkCmdBeginRenderingKHR");
         #insert #run generate_get_device_proc_addr("vkCmdEndRenderingKHR");
+        #insert #run generate_get_device_proc_addr("vkCmdSetColorBlendEnableEXT");
+        #insert #run generate_get_device_proc_addr("vkCmdSetColorBlendEquationEXT");
+        #insert #run generate_get_device_proc_addr("vkCmdSetColorWriteMaskEXT");
         if !loaded_all_pfns then return .FATAL_MISSING_REQUIRED_FEATURE;
 
         // optional extension pfns:
@@ -1360,7 +1373,9 @@ MAX_ATTACHMENTS :: 16;
 
 vkCmdBeginRenderingKHR : PFN_vkCmdBeginRenderingKHR;
 vkCmdEndRenderingKHR : PFN_vkCmdEndRenderingKHR;
-
+vkCmdSetColorBlendEnableEXT   : PFN_vkCmdSetColorBlendEnableEXT;
+vkCmdSetColorBlendEquationEXT : PFN_vkCmdSetColorBlendEquationEXT;
+vkCmdSetColorWriteMaskEXT     : PFN_vkCmdSetColorWriteMaskEXT;
 vkCmdDrawMeshTasksEXT: PFN_vkCmdDrawMeshTasksEXT;
 
 #if DEBUG_MARKERS {
