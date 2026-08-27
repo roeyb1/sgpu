@@ -348,17 +348,19 @@ Gpu_Result :: enum s32 {
 }
 
 Gpu_Optional_Features :: enum_flags {
-    NONE                    :: 0;
-    DESCRIPTOR_BUFFER       :: 1 << 1;
-    SHADER_ATOMIC_INT64     :: 1 << 2;
-    SHADER_INT16            :: 1 << 3;
-    SHADER_INT64            :: 1 << 4;
-    SHADER_INT8             :: 1 << 5;
-    STORAGE_PUSH_CONSTANT_8 :: 1 << 6;
-    MESH_SHADERS            :: 1 << 7;
-    SHADER_CLOCK            :: 1 << 8;
-    SHADER_ATOMIC_FLOATS    :: 1 << 9;
-
+    NONE                             :: 0;
+    DESCRIPTOR_BUFFER                :: 1 << 1;
+    SHADER_ATOMIC_INT64              :: 1 << 2;
+    SHADER_INT16                     :: 1 << 3;
+    SHADER_INT64                     :: 1 << 4;
+    SHADER_INT8                      :: 1 << 5;
+    STORAGE_PUSH_CONSTANT_8          :: 1 << 6;
+    MESH_SHADERS                     :: 1 << 7;
+    SHADER_CLOCK                     :: 1 << 8;
+    SHADER_ATOMIC_FLOATS             :: 1 << 9;
+    SHADER_FLOAT16                   :: 1 << 10;
+    UNIFORM_BUFFER_UPDATE_AFTER_BIND :: 1 << 11;
+    
     // -- nyi --
     RAY_TRACING             ;
 }
@@ -1135,7 +1137,8 @@ create_device :: () -> Gpu_Result {
             descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE,
             descriptorBindingStorageImageUpdateAfterBind = VK_TRUE,
             descriptorBindingStorageTexelBufferUpdateAfterBind = VK_TRUE,
-            descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE,
+            descriptorBindingUniformBufferUpdateAfterBind =
+                enable_feature(requested_optional_features, .UNIFORM_BUFFER_UPDATE_AFTER_BIND),
             descriptorBindingUniformTexelBufferUpdateAfterBind = VK_TRUE,
             descriptorBindingUpdateUnusedWhilePending = VK_TRUE,
             descriptorBindingVariableDescriptorCount = VK_TRUE,
@@ -1157,7 +1160,7 @@ create_device :: () -> Gpu_Result {
             vulkanMemoryModelDeviceScope = VK_TRUE,
             storagePushConstant8 = enable_feature(requested_optional_features, .SHADER_INT8),
             shaderInt8 = enable_feature(requested_optional_features, .SHADER_INT8),
-            shaderFloat16 = VK_TRUE,
+            shaderFloat16 = enable_feature(requested_optional_features, .SHADER_FLOAT16),
         };
         chain = *vk12_features;
 
