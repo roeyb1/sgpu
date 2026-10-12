@@ -317,7 +317,7 @@ gpu_set_depth_stencil_state :: (cmd: Gpu_Command_Buffer, desc: Gpu_Depth_Stencil
         vkCmdSetDepthCompareOp(vk_cmd_buff, desc.depth_test.(VkCompareOp));
 
 		if desc.depth_bias != 0 || desc.depth_bias_slope_factor != 0 {
-			vkCmdSetDepthBiasEnable(vk_cmd_buff, VK_TRUE); 
+			vkCmdSetDepthBiasEnable(vk_cmd_buff, VK_TRUE);
 			vkCmdSetDepthBias(vk_cmd_buff, desc.depth_bias, desc.depth_bias_clamp, desc.depth_bias_slope_factor);
 		}
     } else {
@@ -355,8 +355,29 @@ gpu_set_depth_stencil_state :: (cmd: Gpu_Command_Buffer, desc: Gpu_Depth_Stencil
     }
 }
 
-gpu_set_blend_state :: (cmd: Gpu_Command_Buffer, state: Gpu_Blend_State) {
+gpu_set_blend_state :: (cmd: Gpu_Command_Buffer, state: Gpu_Blend_Desc, attachment_count: u32 = 1) {
+    vk_cmd_buff := get_cmd_buff(cmd);
 
+    enables:   [MAX_ATTACHMENTS] VkBool32;
+    equations: [MAX_ATTACHMENTS] VkColorBlendEquationEXT;
+    masks:     [MAX_ATTACHMENTS] VkColorComponentFlags;
+
+    for 0..attachment_count-1 {
+        enables[it] = VK_TRUE;
+        equations[it] = .{
+            srcColorBlendFactor = state.src_color_factor.(VkBlendFactor),
+            dstColorBlendFactor = state.dst_color_factor.(VkBlendFactor),
+            colorBlendOp        = state.color_op.(VkBlendOp),
+            srcAlphaBlendFactor = state.src_alpha_factor.(VkBlendFactor),
+            dstAlphaBlendFactor = state.dst_alpha_factor.(VkBlendFactor),
+            alphaBlendOp        = state.alpha_op.(VkBlendOp),
+        };
+        masks[it] = state.color_write_mask.(VkColorComponentFlags);
+    }
+
+    vkCmdSetColorBlendEnableEXT  (vk_cmd_buff, 0, attachment_count, enables.data);
+    vkCmdSetColorBlendEquationEXT(vk_cmd_buff, 0, attachment_count, equations.data);
+    vkCmdSetColorWriteMaskEXT    (vk_cmd_buff, 0, attachment_count, masks.data);
 }
 
 gpu_set_viewport :: (cmd: Gpu_Command_Buffer, viewport: Viewport) {
